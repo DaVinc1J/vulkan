@@ -21,12 +21,14 @@ LDFLAGS = \
 SRC_C = $(wildcard src/*.c)
 OBJ_C = $(SRC_C:src/%.c=build/%.o)
 
-OBJ = $(OBJ_C) build/vma_wrapper.o
+LBR_OBJ = build/libraries.o
+OBJ = $(OBJ_C) $(LBR_OBJ)
+
 BIN = build/app
 
-#######################
-### Default Build ###
-#######################
+#########################
+### Default Build All ###
+#########################
 
 .PHONY: all
 all: $(BIN)
@@ -38,14 +40,23 @@ build/%.o: src/%.c
 	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 
+##########################
+### Fast Relink Only ###
+##########################
+
+.PHONY: fast
+fast: $(BIN)
+
 #########################
 ### VMA Wrapper Only ###
 #########################
 
-.PHONY: vma
-vma:
+.PHONY: lbr
+lbr: $(LBR_OBJ)
+
+$(LBR_OBJ): src/libraries.cpp
 	mkdir -p build
-	$(CXX) $(CXXFLAGS) -c src/vma_wrapper.cpp -o build/vma_wrapper.o
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 #######################
 ### Shader Compile ###
@@ -66,10 +77,17 @@ $(SHADER_FRAG_SPV): $(SHADER_FRAG)
 	glslangValidator -V $< -o $@
 
 #######################
-### Clean ###
+### Clean Targets ###
 #######################
 
 .PHONY: clean
 clean:
-	rm -rf build
-	rm -f src/shaders/*.spv
+	rm -f $(BIN)
+
+.PHONY: clean\ vma
+clean\ vma:
+	rm -f $(LBR_OBJ)
+
+.PHONY: clean\ shaders
+clean\ shaders:
+	rm -f $(SHADER_VERT_SPV) $(SHADER_FRAG_SPV)

@@ -1,0 +1,177 @@
+#ifndef DEFINE_H
+#define DEFINE_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <time.h>
+
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
+#include <cglm/cglm.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "libraries/vk_mem_alloc.h"
+#include "libraries/stb_image.h"
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+#include "libraries/tiny_obj_loader.h"
+#endif
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+
+typedef struct _vertex {
+	vec3 pos;
+	vec3 colour;
+	vec2 tex_coord;
+} _vertex;
+
+typedef struct _candidates {
+	VkPhysicalDevice *p_physical_device;
+	u32 score;
+} _candidates;
+
+typedef struct _ubo {
+	mat4 model;
+	mat4 view;
+	mat4 proj;
+} _ubo;
+
+typedef struct _queue_family_indices {
+	u32 graphics_family;
+	u32 present_family;
+	u32 is_graphics_family_set;
+	u32 is_present_family_set;
+} _queue_family_indices;
+
+typedef struct _swapchain_support {
+	VkSurfaceCapabilitiesKHR capabilities;
+	VkSurfaceFormatKHR *surface_formats;
+	VkPresentModeKHR *present_modes;
+	u32 surface_formats_count;
+	u32 present_modes_count;
+} _swapchain_support;
+
+typedef struct _app_window {
+	GLFWwindow* window;
+} _app_window;
+
+typedef struct _app_instance {
+	VkInstance instance;
+	VkDebugUtilsMessengerEXT debug_messenger;
+} _app_instance;
+
+typedef struct _app_device {
+	VkPhysicalDevice physical;
+	VkDevice logical;
+	VkQueue graphics_queue;
+	VkQueue present_queue;
+	_queue_family_indices queue_indices;
+} _app_device;
+
+typedef struct _app_swapchain {
+	VkSurfaceKHR surface;
+	VkSwapchainKHR swapchain;
+	VkImage* images;
+	u32 images_count;
+	VkImageView* image_views;
+	VkSurfaceFormatKHR surface_format;
+	VkExtent2D extent;
+	bool framebuffer_resized;
+} _app_swapchain;
+
+typedef struct _app_pipeline {
+	VkRenderPass render_pass;
+	VkDescriptorSetLayout descriptor_set_layout;
+	VkPipelineLayout layout;
+	VkPipeline pipeline;
+	VkFramebuffer* swapchain_framebuffers;
+} _app_pipeline;
+
+typedef struct _app_commands {
+	VkCommandPool pool;
+	VkCommandBuffer* buffers;
+} _app_commands;
+
+typedef struct _app_sync {
+	VkSemaphore* image_available_semaphores;
+	VkSemaphore* render_finished_semaphores;
+	VkFence* in_flight_fences;
+	u32 frame_index;
+} _app_sync;
+
+typedef struct _app_memory {
+	VmaAllocator alloc;
+} _app_memory;
+
+typedef struct _app_mesh {
+	VkBuffer buffer;
+	VmaAllocation buffer_allocation;
+	u32 index_offset;
+} _app_mesh;
+
+typedef struct _app_uniforms {
+	VkBuffer* buffers;
+	VmaAllocation* buffer_allocations;
+	void** buffers_mapped;
+} _app_uniforms;
+
+typedef struct _app_descriptors {
+	VkDescriptorPool pool;
+	VkDescriptorSet* sets;
+} _app_descriptors;
+
+typedef struct _app_texture {
+	VkImage image;
+	VmaAllocation image_allocation;
+	VkImageView image_view;
+	VkSampler sampler;
+} _app_texture;
+
+typedef struct _app_depth_resources {
+	VkImage image;
+	VmaAllocation image_allocation;
+	VkImageView image_view;
+} _app_depth;
+
+typedef struct _app_config {
+	char *win_title;
+	u32 win_width;
+	u32 win_height;
+	char *vert_shader_path;
+	char *frag_shader_path;
+	char *texture_path;
+} _app_config;
+
+typedef struct _app {
+	_app_window win;
+	_app_instance inst;
+	_app_device device;
+	_app_swapchain swp;
+	_app_pipeline pipe;
+	_app_commands cmd;
+	_app_sync sync;
+	_app_memory mem;
+	_app_mesh mesh;
+	_app_uniforms uniform;
+	_app_descriptors descriptor;
+	_app_texture tex;
+	_app_depth depth;
+	_app_config config;
+} _app;
+
+#endif
