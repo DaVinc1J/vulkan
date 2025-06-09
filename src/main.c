@@ -23,16 +23,22 @@ const u32 enabled_logical_device_extensions_count = sizeof(enabled_logical_devic
 const u32 MAX_FRAMES_IN_FLIGHT = 2;
 
 const _vertex vertices[] = {
-  {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-  {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-  {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-  {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+    {{ 0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{ 0.5f,  0.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
+    {{-0.5f,  0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
+    {{-0.5f,  0.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+    {{ 0.5f,  0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
+    {{ 0.5f,  0.5f, 0.0f}, {1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
+    {{-0.5f,  0.5f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}},
 };
-
 const u32 vertices_count = sizeof(vertices) / sizeof(vertices[0]);
 
 const u32 indices[] = {
-  0, 1, 2, 2, 3, 0,
+    0, 1, 2,
+    2, 3, 0,
+    4, 5, 6,
+    6, 7, 4
 };
 const u32 indices_count = sizeof(indices) / sizeof(indices[0]);
 
@@ -50,6 +56,9 @@ u32 clamp(u32 n, u32 min, u32 max) {
 	if (n > max) return max;
 	return n;
 }
+
+//// obj //// 
+void read_obj_file(_app *p_app);
 
 //// GLFW INIT ////
 void window_init(_app *p_app);
@@ -184,17 +193,56 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 
 	attribs[1].binding = 0;
 	attribs[1].location = 1;
-	attribs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attribs[1].offset = offsetof(_vertex, colour);
+	attribs[1].format = VK_FORMAT_R32G32_SFLOAT;
+	attribs[1].offset = offsetof(_vertex, tex);
 
 	attribs[2].binding = 0;
 	attribs[2].location = 2;
-	attribs[2].format = VK_FORMAT_R32G32_SFLOAT;
-	attribs[2].offset = offsetof(_vertex, tex_coord);
+	attribs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attribs[2].offset = offsetof(_vertex, norm);
 }
 
 //// VERTEX READ ////
 
+//// object read ////
+void read_obj_file(_app *p_app) {
+
+	char* file_data = read_obj(p_app->config.object_path);
+
+	_parser parser = {0};
+	parser.lines = preprocess(file_data, &parser.line_count);
+	free(file_data);
+
+	preparse(&parser);
+
+	_mesh mesh = {0};
+	_counts counts = {0};
+
+	mesh.positions = malloc(sizeof(_vec3) * parser.max_counts.positions);
+	mesh.texcoords = malloc(sizeof(_vec2) * parser.max_counts.texcoords);
+	mesh.normals   = malloc(sizeof(_vec3) * parser.max_counts.normals);
+	mesh.indexed_vertices = malloc(sizeof(_indexed_vertex) * parser.max_counts.triangles * 3);
+
+	parse(parser, &mesh, &counts);
+
+	mesh.positions = realloc(mesh.positions, sizeof(_vec3) * counts.positions);
+	mesh.texcoords = realloc(mesh.texcoords, sizeof(_vec2) * counts.texcoords);
+	mesh.normals = realloc(mesh.normals, sizeof(_vec3) * counts.normals);
+	mesh.indexed_vertices = realloc(mesh.indexed_vertices, sizeof(_indexed_vertex) * counts.triangles * 3);
+	free(parser.lines);
+
+	p_app->obj.vertices = NULL;
+	p_app->obj.indices = NULL;
+	p_app->obj.vertices_count = 0;
+	p_app->obj.indices_count = 0;
+
+	flatten(mesh, counts, &p_app->obj.vertices, &p_app->obj.vertices_count, &p_app->obj.indices, &p_app->obj.indices_count);
+
+	free(mesh.positions);
+	free(mesh.texcoords);
+	free(mesh.normals);
+	free(mesh.indexed_vertices);
+}
 
 ///////////////////////////////////////////
 //////////////// MAIN LOOP ////////////////
@@ -207,6 +255,7 @@ int main() {
 	app.config.vert_shader_path = "src/shaders/vert.spv";
 	app.config.frag_shader_path = "src/shaders/frag.spv";
 	app.config.texture_path = "src/textures/texture.png";
+	app.config.object_path = "src/default.obj";
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -255,6 +304,7 @@ void vulkan_init(_app *p_app) {
 	create_command_pool(p_app);
 	create_depth_resources(p_app);
 	create_framebuffers(p_app);
+	read_obj_file(p_app);
 	create_texture_image(p_app);
 	create_texture_image_view(p_app);
 	create_texture_sampler(p_app);
@@ -1641,8 +1691,8 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 
 //// create combined_buffer ////
 void create_combined_mesh_buffer(_app *p_app) {
-	VkDeviceSize vertex_size = sizeof(vertices[0]) * vertices_count;
-	VkDeviceSize index_size = sizeof(indices[0]) * indices_count;
+	VkDeviceSize vertex_size = sizeof(p_app->obj.vertices[0]) * p_app->obj.vertices_count;
+	VkDeviceSize index_size = sizeof(p_app->obj.indices[0]) * p_app->obj.indices_count;
 	VkDeviceSize total_size = vertex_size + index_size;
 
 	p_app->mesh.index_offset = (u32)vertex_size;
@@ -1656,8 +1706,8 @@ void create_combined_mesh_buffer(_app *p_app) {
 
 	void *data;
 	vmaMapMemory(p_app->mem.alloc, staging_allocation, &data);
-	memcpy(data, vertices, (size_t)vertex_size);
-	memcpy((char *)data + vertex_size, indices, (size_t)index_size);
+	memcpy(data, p_app->obj.vertices, (size_t)vertex_size);
+	memcpy((char *)data + vertex_size, p_app->obj.indices, (size_t)index_size);
 	vmaUnmapMemory(p_app->mem.alloc, staging_allocation);
 
 	create_buffer(p_app, total_size,
@@ -1890,7 +1940,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	vkCmdBindIndexBuffer(command_buffer, p_app->mesh.buffer, p_app->mesh.index_offset, VK_INDEX_TYPE_UINT32);
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipe.layout, 0, 1, &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
-	vkCmdDrawIndexed(command_buffer, indices_count, 1, 0, 0, 0);
+	vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count, 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(command_buffer);
 
@@ -2188,6 +2238,11 @@ void clean(_app *p_app) {
 	p_app->uniform.buffers_mapped = NULL;
 
 	vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.buffer, p_app->mesh.buffer_allocation);
+
+	free(p_app->obj.vertices);
+	free(p_app->obj.indices);
+	p_app->obj.vertices = NULL;
+	p_app->obj.indices = NULL;
 
 	free(p_app->cmd.buffers);
 	p_app->cmd.buffers = NULL;

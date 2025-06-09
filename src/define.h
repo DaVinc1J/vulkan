@@ -14,6 +14,8 @@
 #include <vulkan/vulkan.h>
 #include <cglm/cglm.h>
 
+#include "obj.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -34,11 +36,11 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 
-typedef struct _vertex {
-	vec3 pos;
-	vec3 colour;
-	vec2 tex_coord;
-} _vertex;
+//typedef struct _vertex {
+//	vec3 pos;
+//	vec3 colour;
+//	vec2 tex_coord;
+//} _vertex;
 
 typedef struct _candidates {
 	VkPhysicalDevice *p_physical_device;
@@ -155,7 +157,15 @@ typedef struct _app_config {
 	char *vert_shader_path;
 	char *frag_shader_path;
 	char *texture_path;
+	char *object_path;
 } _app_config;
+
+typedef struct _app_obj {
+	_vertex *vertices;
+	u32 *indices;
+	u32 vertices_count;
+	u32 indices_count;
+} _app_obj;
 
 typedef struct _app {
 	_app_window win;
@@ -172,6 +182,7 @@ typedef struct _app {
 	_app_texture tex;
 	_app_depth depth;
 	_app_config config;
+	_app_obj obj;
 } _app;
 
 #endif
