@@ -13,8 +13,8 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <cglm/cglm.h>
-
-#include "obj.h"
+#define FAST_OBJ_IMPLEMENTATION
+#include "libraries/fast_obj.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,10 +25,6 @@ extern "C" {
 }
 #endif
 
-#ifdef __cplusplus
-#include "libraries/tiny_obj_loader.h"
-#endif
-
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -36,11 +32,17 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 
-//typedef struct _vertex {
-//	vec3 pos;
-//	vec3 colour;
-//	vec2 tex_coord;
-//} _vertex;
+typedef struct {
+	float pos[3];
+	float tex[2];
+	float norm[3];
+} _vertex;
+
+typedef struct _node {
+	_vertex vertex;
+	u32 index;
+	struct _node* next;
+} _node;
 
 typedef struct _candidates {
 	VkPhysicalDevice *p_physical_device;
@@ -161,10 +163,16 @@ typedef struct _app_config {
 } _app_config;
 
 typedef struct _app_obj {
-	_vertex *vertices;
-	u32 *indices;
-	u32 vertices_count;
-	u32 indices_count;
+	_vertex** vertices;
+	u32** indices;
+	u32* vertices_count;
+	u32* indices_count;
+	u32** face_indices;
+	u32** material_indices;
+	u32** group_indices;
+	u32** object_indices;
+	u32** texture_indices;
+	fastObjMesh *mesh;
 } _app_obj;
 
 typedef struct _app {

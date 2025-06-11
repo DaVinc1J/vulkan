@@ -10,38 +10,17 @@ const char* validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
 const u32 validation_layer_count = sizeof(validation_layers) / sizeof(validation_layers[0]);
 #ifdef __APPLE__
 const char* enabled_logical_device_extensions[] = {
-    "VK_KHR_swapchain",
-    "VK_KHR_portability_subset"
+	"VK_KHR_swapchain",
+	"VK_KHR_portability_subset"
 };
 #else
 const char* enabled_logical_device_extensions[] = {
-    "VK_KHR_swapchain"
+	"VK_KHR_swapchain"
 };
 #endif
 const u32 enabled_logical_device_extensions_count = sizeof(enabled_logical_device_extensions) / sizeof(enabled_logical_device_extensions[0]);
 
 const u32 MAX_FRAMES_IN_FLIGHT = 2;
-
-const _vertex vertices[] = {
-    {{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    {{ 0.5f, -0.5f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{ 0.5f,  0.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}},
-    {{-0.5f,  0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}},
-    {{-0.5f,  0.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 1.0f}},
-    {{ 0.5f,  0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f, 1.0f}},
-    {{ 0.5f,  0.5f, 0.0f}, {1.0f, 1.0f}, {1.0f, 1.0f, 0.0f}},
-    {{-0.5f,  0.5f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}},
-};
-const u32 vertices_count = sizeof(vertices) / sizeof(vertices[0]);
-
-const u32 indices[] = {
-    0, 1, 2,
-    2, 3, 0,
-    4, 5, 6,
-    6, 7, 4
-};
-const u32 indices_count = sizeof(indices) / sizeof(indices[0]);
-
 const u32 number_of_attributes = 3;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void* p_user_data);
@@ -58,6 +37,7 @@ u32 clamp(u32 n, u32 min, u32 max) {
 }
 
 //// obj //// 
+void flatten(fastObjMesh* mesh, _app_obj* p_app_obj);
 void read_obj_file(_app *p_app);
 
 //// GLFW INIT ////
@@ -207,41 +187,21 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 //// object read ////
 void read_obj_file(_app *p_app) {
 
-	char* file_data = read_obj(p_app->config.object_path);
+	p_app->obj.mesh = malloc(sizeof(fastObjMesh));
+	p_app->obj.mesh = fast_obj_read(p_app->config.object_path);
 
-	_parser parser = {0};
-	parser.lines = preprocess(file_data, &parser.line_count);
-	free(file_data);
+	p_app->obj.vertices = malloc(p_app->obj.mesh->object_count * sizeof(_vertex*));
+	p_app->obj.indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	p_app->obj.face_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	p_app->obj.material_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	p_app->obj.group_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	p_app->obj.object_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	p_app->obj.texture_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
 
-	preparse(&parser);
+	p_app->obj.vertices_count = malloc(p_app->obj.mesh->object_count * sizeof(u32));
+	p_app->obj.indices_count = malloc(p_app->obj.mesh->object_count * sizeof(u32));
 
-	_mesh mesh = {0};
-	_counts counts = {0};
-
-	mesh.positions = malloc(sizeof(_vec3) * parser.max_counts.positions);
-	mesh.texcoords = malloc(sizeof(_vec2) * parser.max_counts.texcoords);
-	mesh.normals   = malloc(sizeof(_vec3) * parser.max_counts.normals);
-	mesh.indexed_vertices = malloc(sizeof(_indexed_vertex) * parser.max_counts.triangles * 3);
-
-	parse(parser, &mesh, &counts);
-
-	mesh.positions = realloc(mesh.positions, sizeof(_vec3) * counts.positions);
-	mesh.texcoords = realloc(mesh.texcoords, sizeof(_vec2) * counts.texcoords);
-	mesh.normals = realloc(mesh.normals, sizeof(_vec3) * counts.normals);
-	mesh.indexed_vertices = realloc(mesh.indexed_vertices, sizeof(_indexed_vertex) * counts.triangles * 3);
-	free(parser.lines);
-
-	p_app->obj.vertices = NULL;
-	p_app->obj.indices = NULL;
-	p_app->obj.vertices_count = 0;
-	p_app->obj.indices_count = 0;
-
-	flatten(mesh, counts, &p_app->obj.vertices, &p_app->obj.vertices_count, &p_app->obj.indices, &p_app->obj.indices_count);
-
-	free(mesh.positions);
-	free(mesh.texcoords);
-	free(mesh.normals);
-	free(mesh.indexed_vertices);
+	flatten(p_app->obj.mesh, &p_app->obj);
 }
 
 ///////////////////////////////////////////
@@ -254,8 +214,8 @@ int main() {
 	app.config.win_height = 800;
 	app.config.vert_shader_path = "src/shaders/vert.spv";
 	app.config.frag_shader_path = "src/shaders/frag.spv";
-	app.config.texture_path = "src/textures/texture.png";
-	app.config.object_path = "src/default.obj";
+	app.config.texture_path = "src/textures/example.png";
+	app.config.object_path = "src/objects/example.obj";
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -1435,7 +1395,7 @@ void create_framebuffers(_app *p_app) {
 void create_texture_image(_app *p_app) {
 	int texture_width, texture_height, texture_channels;
 
-	stbi_uc *pixels = stbi_load(p_app->config.texture_path, &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
+	stbi_uc *pixels = stbi_load(p_app->obj.mesh->textures[p_app->obj.texture_indices[0][0]].path, &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
 	VkDeviceSize image_size = texture_width * texture_height * 4;
 
 	if (!pixels) {
@@ -1691,11 +1651,11 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 
 //// create combined_buffer ////
 void create_combined_mesh_buffer(_app *p_app) {
-	VkDeviceSize vertex_size = sizeof(p_app->obj.vertices[0]) * p_app->obj.vertices_count;
-	VkDeviceSize index_size = sizeof(p_app->obj.indices[0]) * p_app->obj.indices_count;
-	VkDeviceSize total_size = vertex_size + index_size;
+	VkDeviceSize positions_size = sizeof(p_app->obj.vertices[0][0]) * p_app->obj.vertices_count[0];
+	VkDeviceSize indices_size = sizeof(p_app->obj.indices[0][0]) * p_app->obj.indices_count[0];
+	VkDeviceSize total_size = positions_size + indices_size;
 
-	p_app->mesh.index_offset = (u32)vertex_size;
+	p_app->mesh.index_offset = (u32)positions_size;
 
 	VkBuffer staging_buffer;
 	VmaAllocation staging_allocation;
@@ -1706,8 +1666,8 @@ void create_combined_mesh_buffer(_app *p_app) {
 
 	void *data;
 	vmaMapMemory(p_app->mem.alloc, staging_allocation, &data);
-	memcpy(data, p_app->obj.vertices, (size_t)vertex_size);
-	memcpy((char *)data + vertex_size, p_app->obj.indices, (size_t)index_size);
+	memcpy(data, p_app->obj.vertices[0], (size_t)positions_size);
+	memcpy((char *)data + positions_size, p_app->obj.indices[0], (size_t)indices_size);
 	vmaUnmapMemory(p_app->mem.alloc, staging_allocation);
 
 	create_buffer(p_app, total_size,
@@ -1940,7 +1900,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	vkCmdBindIndexBuffer(command_buffer, p_app->mesh.buffer, p_app->mesh.index_offset, VK_INDEX_TYPE_UINT32);
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipe.layout, 0, 1, &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
-	vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count, 1, 0, 0, 0);
+	vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[0], 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(command_buffer);
 
@@ -2215,6 +2175,9 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 //////////////// clean ////////////////
 ///////////////////////////////////////
 void clean(_app *p_app) {
+
+	fast_obj_destroy(p_app->obj.mesh);
+
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 
@@ -2238,11 +2201,6 @@ void clean(_app *p_app) {
 	p_app->uniform.buffers_mapped = NULL;
 
 	vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.buffer, p_app->mesh.buffer_allocation);
-
-	free(p_app->obj.vertices);
-	free(p_app->obj.indices);
-	p_app->obj.vertices = NULL;
-	p_app->obj.indices = NULL;
 
 	free(p_app->cmd.buffers);
 	p_app->cmd.buffers = NULL;
@@ -2368,5 +2326,136 @@ void submit_debug_message(VkInstance inst, VkDebugUtilsMessageSeverityFlagBitsEX
 			 .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT,
 			 .pMessage = buffer
 			 });
+	}
+}
+
+void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
+
+	u32 idx_offset = 0;
+
+	for (u32 o = 0; o < mesh->object_count; ++o) {
+		fastObjGroup* obj = &mesh->objects[o];
+
+		u32 index_count = 0;
+		for (u32 f = obj->face_offset; f < obj->face_offset + obj->face_count; ++f) {
+			uint32_t fv = mesh->face_vertices[f];
+			if (fv >= 3)
+				index_count += (fv - 2) * 3;
+		}
+
+		p_app_obj->vertices[o] = malloc(index_count * sizeof(_vertex));
+		p_app_obj->indices[o] = malloc(index_count * sizeof(u32));
+		p_app_obj->face_indices[o] = malloc(index_count * sizeof(u32));
+		p_app_obj->material_indices[o] = malloc(index_count * sizeof(u32));
+		p_app_obj->group_indices[o] = malloc(index_count * sizeof(u32));
+		p_app_obj->object_indices[o] = malloc(index_count * sizeof(u32));
+		p_app_obj->texture_indices[o] = malloc(index_count * sizeof(u32));
+
+		p_app_obj->vertices_count[o] = 0;
+		p_app_obj->indices_count[o] = 0;
+
+		u32 table_size = 1024;
+		while (table_size < index_count) table_size <<= 1;
+		_node** table = calloc(table_size, sizeof(_node*));
+		_node* n_pool = malloc(index_count * sizeof(_node));
+
+		u32 pool_index = 0;
+
+		for (u32 f = obj->face_offset; f < obj->face_offset + obj->face_count; ++f) {
+			uint32_t fv = mesh->face_vertices[f];
+			if (fv < 3) continue;
+
+			u32 mat = 0; 
+			if (mesh->face_materials) {
+				mat = mesh->face_materials[f];
+			}
+
+			for (u32 i = 1; i + 1 < fv; ++i) {
+				fastObjIndex tri[3] = {
+					mesh->indices[idx_offset + 0],
+					mesh->indices[idx_offset + i],
+					mesh->indices[idx_offset + i + 1]
+				};
+
+				for (int t = 0; t < 3; ++t) {
+					fastObjIndex idx = tri[t];
+					_vertex v = {0};
+
+					if (idx.p >= 0 && idx.p < mesh->position_count) {
+						v.pos[0] = mesh->positions[3 * idx.p + 0];
+						v.pos[1] = mesh->positions[3 * idx.p + 1];
+						v.pos[2] = mesh->positions[3 * idx.p + 2];
+					}
+
+					if (idx.t >= 0 && idx.t < mesh->texcoord_count) {
+						v.tex[0] = mesh->texcoords[2 * idx.t + 0];
+						v.tex[1] = mesh->texcoords[2 * idx.t + 1];
+					}
+
+					if (idx.n >= 0 && idx.n < mesh->normal_count) {
+						v.norm[0] = mesh->normals[3 * idx.n + 0];
+						v.norm[1] = mesh->normals[3 * idx.n + 1];
+						v.norm[2] = mesh->normals[3 * idx.n + 2];
+					}
+
+					uint32_t hash = 5381;
+					unsigned char* bytes = (unsigned char*)&v;
+					for (size_t j = 0; j < sizeof(_vertex); j++) {
+						hash = ((hash << 5) + hash) + bytes[j];
+					}
+					hash &= (table_size - 1);
+
+					_node* n = table[hash];
+					u32 found_index = 0;
+					int found = 0;
+
+					while (n) {
+						if (memcmp(&n->vertex, &v, sizeof(_vertex)) == 0) {
+							found = 1;
+							found_index = n->index;
+							break;
+						}
+						n = n->next;
+					}
+
+					if (found) {
+						p_app_obj->indices[o][p_app_obj->indices_count[o]] = found_index;
+					} else {
+						p_app_obj->vertices[o][p_app_obj->vertices_count[o]] = v;
+						p_app_obj->indices[o][p_app_obj->indices_count[o]] = p_app_obj->vertices_count[o];
+
+						_node* new_n = &n_pool[pool_index++];
+						new_n->vertex = v;
+						new_n->index = p_app_obj->vertices_count[o];
+						new_n->next = table[hash];
+						table[hash] = new_n;
+
+						p_app_obj->vertices_count[o]++;
+					}
+
+					fastObjMaterial *material = &mesh->materials[mat];
+
+					u32 texture_index = material->map_Kd;
+
+					if (texture_index > 0 && texture_index <= mesh->texture_count) {
+						p_app_obj->texture_indices[o][p_app_obj->indices_count[o]] = texture_index;
+					} else {
+						p_app_obj->texture_indices[o][p_app_obj->indices_count[o]] = 0;
+					}
+
+					p_app_obj->face_indices[o][p_app_obj->indices_count[o]] = f;
+					p_app_obj->material_indices[o][p_app_obj->indices_count[o]] = mat;
+					p_app_obj->group_indices[o][p_app_obj->indices_count[o]] = o;
+					p_app_obj->object_indices[o][p_app_obj->indices_count[o]] = o;
+
+					p_app_obj->indices_count[o]++;
+				}
+			}
+
+			idx_offset += fv;
+		}
+
+		free(table);
+		free(n_pool);
 	}
 }
