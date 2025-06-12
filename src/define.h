@@ -160,7 +160,6 @@ typedef struct _app_config {
 	u32 win_height;
 	char *vert_shader_path;
 	char *frag_shader_path;
-	char *texture_path;
 	char *object_path;
 } _app_config;
 
@@ -186,12 +185,12 @@ typedef struct _app {
 	_app_commands cmd;
 	_app_sync sync;
 	_app_memory mem;
-	_app_mesh mesh;
 	_app_uniforms uniform;
 	_app_descriptors descriptor;
 	_app_texture tex;
 	_app_depth depth;
 	_app_config config;
+	_app_mesh mesh;
 	_app_obj obj;
 } _app;
 

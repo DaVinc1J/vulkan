@@ -2192,7 +2192,7 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 	_ubo ubo;
 
 	glm_mat4_identity(ubo.model);
-	glm_rotate(ubo.model, glm_rad(90.0f) * time, (vec3){0.0f, 0.0f, 1.0f});
+	glm_rotate(ubo.model, glm_rad(15.0f) * time, (vec3){0.0f, 0.0f, 1.0f});
 
 	glm_lookat((vec3){2.0f, 2.0f, 2.0f},
 						(vec3){0.0f, 0.0f, 0.0f},
