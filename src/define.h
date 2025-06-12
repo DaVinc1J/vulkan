@@ -36,6 +36,7 @@ typedef struct {
 	float pos[3];
 	float tex[2];
 	float norm[3];
+	int tex_index;
 } _vertex;
 
 typedef struct _node {
@@ -123,9 +124,10 @@ typedef struct _app_memory {
 } _app_memory;
 
 typedef struct _app_mesh {
-	VkBuffer buffer;
-	VmaAllocation buffer_allocation;
-	u32 index_offset;
+	VkBuffer* vertex_buffers;
+	VkBuffer* index_buffers;
+	VmaAllocation* vertex_allocations;
+	VmaAllocation* index_allocations;
 } _app_mesh;
 
 typedef struct _app_uniforms {
@@ -140,9 +142,9 @@ typedef struct _app_descriptors {
 } _app_descriptors;
 
 typedef struct _app_texture {
-	VkImage image;
-	VmaAllocation image_allocation;
-	VkImageView image_view;
+	VkImage *images;
+	VmaAllocation *image_allocations;
+	VkImageView *image_views;
 	VkSampler sampler;
 } _app_texture;
 

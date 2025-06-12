@@ -21,7 +21,7 @@ const char* enabled_logical_device_extensions[] = {
 const u32 enabled_logical_device_extensions_count = sizeof(enabled_logical_device_extensions) / sizeof(enabled_logical_device_extensions[0]);
 
 const u32 MAX_FRAMES_IN_FLIGHT = 2;
-const u32 number_of_attributes = 3;
+const u32 number_of_attributes = 4;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void* p_user_data);
 VkResult create_debug_utils_messenger_EXT(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info, const VkAllocationCallbacks *p_alloc, VkDebugUtilsMessengerEXT *p_debug_messenger);
@@ -120,7 +120,7 @@ void create_texture_sampler(_app *p_app);
 // buffers //
 void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer *p_buffer, VmaAllocation *p_allocation);
 void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
-void create_combined_mesh_buffer(_app *p_app);
+void create_mesh_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
 
 // descriptors //
@@ -180,6 +180,11 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 	attribs[2].location = 2;
 	attribs[2].format = VK_FORMAT_R32G32B32_SFLOAT;
 	attribs[2].offset = offsetof(_vertex, norm);
+
+	attribs[3].binding = 0;
+	attribs[3].location = 3;
+	attribs[3].format = VK_FORMAT_R32_SINT;
+	attribs[3].offset = offsetof(_vertex, tex_index);
 }
 
 //// VERTEX READ ////
@@ -187,7 +192,6 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 //// object read ////
 void read_obj_file(_app *p_app) {
 
-	p_app->obj.mesh = malloc(sizeof(fastObjMesh));
 	p_app->obj.mesh = fast_obj_read(p_app->config.object_path);
 
 	p_app->obj.vertices = malloc(p_app->obj.mesh->object_count * sizeof(_vertex*));
@@ -214,8 +218,7 @@ int main() {
 	app.config.win_height = 800;
 	app.config.vert_shader_path = "src/shaders/vert.spv";
 	app.config.frag_shader_path = "src/shaders/frag.spv";
-	app.config.texture_path = "src/textures/example.png";
-	app.config.object_path = "src/objects/example.obj";
+	app.config.object_path = "src/objects/viking_room.obj";
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -250,6 +253,7 @@ void framebuffer_resize_callback(GLFWwindow* window, int width, int height) {
 //////// vulkan main loop ////////
 //////////////////////////////////
 void vulkan_init(_app *p_app) {
+	read_obj_file(p_app);
 	create_instance(p_app);
 	setup_debug_messenger(p_app);
 	create_surface(p_app);
@@ -264,11 +268,10 @@ void vulkan_init(_app *p_app) {
 	create_command_pool(p_app);
 	create_depth_resources(p_app);
 	create_framebuffers(p_app);
-	read_obj_file(p_app);
 	create_texture_image(p_app);
 	create_texture_image_view(p_app);
 	create_texture_sampler(p_app);
-	create_combined_mesh_buffer(p_app);
+	create_mesh_buffer(p_app);
 	create_uniform_buffers(p_app);
 	create_descriptor_pool(p_app);
 	create_descriptor_sets(p_app);
@@ -700,6 +703,12 @@ void create_logical_device(_app *p_app) {
 	physical_device_features.samplerAnisotropy = VK_TRUE;
 	physical_device_features.robustBufferAccess = VK_FALSE;
 
+	VkPhysicalDeviceVulkan12Features features_1_2 = {
+		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		.runtimeDescriptorArray = VK_TRUE,
+		.shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+	};
+
 	VkDeviceCreateInfo logical_device_create_info = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = queue_create_info_count,
@@ -707,6 +716,7 @@ void create_logical_device(_app *p_app) {
 		.pEnabledFeatures = &physical_device_features,
 		.enabledExtensionCount = enabled_logical_device_extensions_count,
 		.ppEnabledExtensionNames = enabled_logical_device_extensions,
+		.pNext = &features_1_2,
 	};
 
 	logical_device_create_info.enabledLayerCount = 0;
@@ -1000,7 +1010,7 @@ void create_descriptor_set_layout(_app *p_app) {
 
 	VkDescriptorSetLayoutBinding sampler_layout_binding = {
 		.binding = 1,
-		.descriptorCount = 1,
+		.descriptorCount = p_app->obj.mesh->texture_count - 1,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.pImmutableSamplers = NULL,
 		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1173,13 +1183,13 @@ void create_graphics_pipeline(_app *p_app) {
 
 	VkPipelineColorBlendAttachmentState colour_blend_attachment_state = {
 		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-		.blendEnable = VK_TRUE,
-		.srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD,
+.blendEnable = VK_TRUE,
+.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+.colorBlendOp = VK_BLEND_OP_ADD,
+.alphaBlendOp = VK_BLEND_OP_ADD,
 	};
 
 	VkPipelineColorBlendStateCreateInfo colour_blend_state_create_info = {
@@ -1393,56 +1403,64 @@ void create_framebuffers(_app *p_app) {
 /////////////////////////
 //// create texture ////
 void create_texture_image(_app *p_app) {
-	int texture_width, texture_height, texture_channels;
 
-	stbi_uc *pixels = stbi_load(p_app->obj.mesh->textures[p_app->obj.texture_indices[0][0]].path, &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
-	VkDeviceSize image_size = texture_width * texture_height * 4;
+	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.mesh->texture_count);
+	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.mesh->texture_count);
+	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->obj.mesh->texture_count);
 
-	if (!pixels) {
-		submit_debug_message(
-			p_app->inst.instance,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			"texture image => failed to load texture image"
-		);
-		exit(EXIT_FAILURE);
+	for (u32 i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
+		int texture_width, texture_height, texture_channels;
+
+		stbi_uc *pixels = stbi_load(p_app->obj.mesh->textures[i + 1].path, &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
+		VkDeviceSize image_size = texture_width * texture_height * 4;
+
+		if (!pixels) {
+			submit_debug_message(
+				p_app->inst.instance,
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+				"texture image => failed to load texture image"
+			);
+			exit(EXIT_FAILURE);
+		}
+
+		VkBuffer staging_buffer;
+		VmaAllocation staging_buffer_allocation;
+
+		VkBufferCreateInfo buffer_create_info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = image_size,
+			.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		};
+
+		VmaAllocationCreateInfo alloc_create_info = {
+			.usage = VMA_MEMORY_USAGE_CPU_ONLY,
+		};
+
+		vmaCreateBuffer(p_app->mem.alloc, &buffer_create_info, &alloc_create_info, &staging_buffer, &staging_buffer_allocation, NULL);
+
+		void *data;
+		vmaMapMemory(p_app->mem.alloc, staging_buffer_allocation, &data);
+		memcpy(data, pixels, (size_t)image_size);
+		vmaUnmapMemory(p_app->mem.alloc, staging_buffer_allocation);
+
+		stbi_image_free(pixels);
+
+		create_image(p_app, &p_app->tex.images[i], &p_app->tex.image_allocations[i], texture_width, texture_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copy_buffer_to_image(p_app, staging_buffer, p_app->tex.images[i], texture_width, texture_height);
+		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_buffer_allocation);
 	}
-
-	VkBuffer staging_buffer;
-	VmaAllocation staging_buffer_allocation;
-
-	VkBufferCreateInfo buffer_create_info = {
-		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = image_size,
-		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-	};
-
-	VmaAllocationCreateInfo alloc_create_info = {
-		.usage = VMA_MEMORY_USAGE_CPU_ONLY,
-	};
-
-	vmaCreateBuffer(p_app->mem.alloc, &buffer_create_info, &alloc_create_info, &staging_buffer, &staging_buffer_allocation, NULL);
-
-	void *data;
-	vmaMapMemory(p_app->mem.alloc, staging_buffer_allocation, &data);
-	memcpy(data, pixels, (size_t)image_size);
-	vmaUnmapMemory(p_app->mem.alloc, staging_buffer_allocation);
-
-	stbi_image_free(pixels);
-
-	create_image(p_app, &p_app->tex.image, &p_app->tex.image_allocation, texture_width, texture_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-
-	transition_image_layout(p_app, p_app->tex.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copy_buffer_to_image(p_app, staging_buffer, p_app->tex.image, texture_width, texture_height);
-	transition_image_layout(p_app, p_app->tex.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_buffer_allocation);
-
 }
 
 //// texture image view ////
 void create_texture_image_view(_app *p_app) {
-	create_image_view(p_app, p_app->tex.image, &p_app->tex.image_view, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+	for (u32 i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
+		create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+	}
 }
 
 //// sampler ////
@@ -1650,36 +1668,55 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 }
 
 //// create combined_buffer ////
-void create_combined_mesh_buffer(_app *p_app) {
-	VkDeviceSize positions_size = sizeof(p_app->obj.vertices[0][0]) * p_app->obj.vertices_count[0];
-	VkDeviceSize indices_size = sizeof(p_app->obj.indices[0][0]) * p_app->obj.indices_count[0];
-	VkDeviceSize total_size = positions_size + indices_size;
+void create_mesh_buffer(_app *p_app) {
+	u32 object_count = p_app->obj.mesh->object_count;
 
-	p_app->mesh.index_offset = (u32)positions_size;
+	p_app->mesh.vertex_buffers = malloc(sizeof(VkBuffer) * object_count);
+	p_app->mesh.index_buffers = malloc(sizeof(VkBuffer) * object_count);
+	p_app->mesh.vertex_allocations = malloc(sizeof(VmaAllocation) * object_count);
+	p_app->mesh.index_allocations = malloc(sizeof(VmaAllocation) * object_count);
 
-	VkBuffer staging_buffer;
-	VmaAllocation staging_allocation;
-	create_buffer(p_app, total_size,
-							 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-							 VMA_MEMORY_USAGE_CPU_ONLY,
-							 &staging_buffer, &staging_allocation);
+	for (u32 o = 0; o < object_count; ++o) {
+		u32 v_count = p_app->obj.vertices_count[o];
+		u32 i_count = p_app->obj.indices_count[o];
 
-	void *data;
-	vmaMapMemory(p_app->mem.alloc, staging_allocation, &data);
-	memcpy(data, p_app->obj.vertices[0], (size_t)positions_size);
-	memcpy((char *)data + positions_size, p_app->obj.indices[0], (size_t)indices_size);
-	vmaUnmapMemory(p_app->mem.alloc, staging_allocation);
+		VkDeviceSize v_size = sizeof(_vertex) * v_count;
+		VkDeviceSize i_size = sizeof(u32) * i_count;
 
-	create_buffer(p_app, total_size,
-							 VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-							 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-							 VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-							 VMA_MEMORY_USAGE_GPU_ONLY,
-							 &p_app->mesh.buffer,
-							 &p_app->mesh.buffer_allocation);
+		// Vertex buffer
+		VkBuffer staging_vb;
+		VmaAllocation staging_va;
+		create_buffer(p_app, v_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_vb, &staging_va);
+		void* v_data;
+		vmaMapMemory(p_app->mem.alloc, staging_va, &v_data);
+		memcpy(v_data, p_app->obj.vertices[o], v_size);
+		vmaUnmapMemory(p_app->mem.alloc, staging_va);
 
-	copy_buffer(p_app, staging_buffer, p_app->mesh.buffer, total_size);
-	vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_allocation);
+		create_buffer(p_app, v_size,
+								VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+								VMA_MEMORY_USAGE_GPU_ONLY,
+								&p_app->mesh.vertex_buffers[o], &p_app->mesh.vertex_allocations[o]);
+
+		copy_buffer(p_app, staging_vb, p_app->mesh.vertex_buffers[o], v_size);
+		vmaDestroyBuffer(p_app->mem.alloc, staging_vb, staging_va);
+
+		// Index buffer
+		VkBuffer staging_ib;
+		VmaAllocation staging_ia;
+		create_buffer(p_app, i_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_ib, &staging_ia);
+		void* i_data;
+		vmaMapMemory(p_app->mem.alloc, staging_ia, &i_data);
+		memcpy(i_data, p_app->obj.indices[o], i_size);
+		vmaUnmapMemory(p_app->mem.alloc, staging_ia);
+
+		create_buffer(p_app, i_size,
+								VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+								VMA_MEMORY_USAGE_GPU_ONLY,
+								&p_app->mesh.index_buffers[o], &p_app->mesh.index_allocations[o]);
+
+		copy_buffer(p_app, staging_ib, p_app->mesh.index_buffers[o], i_size);
+		vmaDestroyBuffer(p_app->mem.alloc, staging_ib, staging_ia);
+	}
 }
 
 
@@ -1727,17 +1764,16 @@ void create_uniform_buffers(_app *p_app) {
 //////// descriptors ////////
 /////////////////////////////
 void create_descriptor_pool(_app *p_app) {
-	VkDescriptorPoolSize pool_sizes[2];
-	pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	pool_sizes[0].descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
-	pool_sizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	pool_sizes[1].descriptorCount = (u32)MAX_FRAMES_IN_FLIGHT;
+	VkDescriptorPoolSize pool_sizes[2] = {
+		{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_FRAMES_IN_FLIGHT },
+		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * (p_app->obj.mesh->texture_count - 1) }
+	};
 
 	VkDescriptorPoolCreateInfo pool_create_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.poolSizeCount = sizeof(pool_sizes) / sizeof(pool_sizes[0]),
+		.poolSizeCount = 2,
 		.pPoolSizes = pool_sizes,
-		.maxSets = (u32)MAX_FRAMES_IN_FLIGHT,
+		.maxSets = MAX_FRAMES_IN_FLIGHT,
 	};
 
 	if (vkCreateDescriptorPool(p_app->device.logical, &pool_create_info, NULL, &p_app->descriptor.pool) != VK_SUCCESS) {
@@ -1752,7 +1788,6 @@ void create_descriptor_pool(_app *p_app) {
 
 void create_descriptor_sets(_app *p_app) {
 	p_app->descriptor.sets = malloc(sizeof(VkDescriptorSet) * MAX_FRAMES_IN_FLIGHT);
-
 	VkDescriptorSetLayout *layouts = malloc(sizeof(VkDescriptorSetLayout) * MAX_FRAMES_IN_FLIGHT);
 
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1763,7 +1798,7 @@ void create_descriptor_sets(_app *p_app) {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = p_app->descriptor.pool,
 		.descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
-		.pSetLayouts = layouts
+		.pSetLayouts = layouts,
 	};
 
 	if (vkAllocateDescriptorSets(p_app->device.logical, &alloc_info, p_app->descriptor.sets) != VK_SUCCESS) {
@@ -1782,38 +1817,41 @@ void create_descriptor_sets(_app *p_app) {
 			.range = sizeof(_ubo)
 		};
 
-		VkDescriptorImageInfo image_info = {
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			.imageView = p_app->tex.image_view,
-			.sampler = p_app->tex.sampler,
+		VkDescriptorImageInfo *image_infos = malloc(sizeof(VkDescriptorImageInfo) * (p_app->obj.mesh->texture_count - 1));
+		for (u32 j = 0; j < (p_app->obj.mesh->texture_count - 1); j++) {
+			image_infos[j] = (VkDescriptorImageInfo){
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				.imageView = p_app->tex.image_views[j],
+				.sampler = p_app->tex.sampler,
+			};
+		}
+
+		VkWriteDescriptorSet descriptor_writes[2] = {
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = p_app->descriptor.sets[i],
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+				.descriptorCount = 1,
+				.pBufferInfo = &buffer_info,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = p_app->descriptor.sets[i],
+				.dstBinding = 1,
+				.dstArrayElement = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.descriptorCount = (p_app->obj.mesh->texture_count - 1),
+				.pImageInfo = image_infos,
+			}
 		};
 
-		VkWriteDescriptorSet descriptor_writes[2];
-		descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes[0].dstSet = p_app->descriptor.sets[i];
-		descriptor_writes[0].dstBinding = 0;
-		descriptor_writes[0].dstArrayElement = 0;
-		descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptor_writes[0].descriptorCount = 1;
-		descriptor_writes[0].pBufferInfo = &buffer_info;
-		descriptor_writes[0].pNext = NULL;
-
-		descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes[1].dstSet = p_app->descriptor.sets[i];
-		descriptor_writes[1].dstBinding = 1;
-		descriptor_writes[1].dstArrayElement = 0;
-		descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptor_writes[1].descriptorCount = 1;
-		descriptor_writes[1].pImageInfo = &image_info;
-		descriptor_writes[1].pNext = NULL;
-
-		size_t descriptor_writes_count = sizeof(descriptor_writes) / sizeof(descriptor_writes[0]);
-
-		vkUpdateDescriptorSets(p_app->device.logical, (u32)descriptor_writes_count, descriptor_writes, 0, NULL);
+		vkUpdateDescriptorSets(p_app->device.logical, 2, descriptor_writes, 0, NULL);
+		free(image_infos);
 	}
 
 	free(layouts);
-
 }
 
 //////// command buffer ////////
@@ -1893,14 +1931,14 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	};
 	vkCmdSetScissor(command_buffer, 0, 1, &scissor);            
 
-	VkBuffer vertex_buffers[] = {p_app->mesh.buffer};
-
-	VkDeviceSize offsets[] = {0};
-	vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
-	vkCmdBindIndexBuffer(command_buffer, p_app->mesh.buffer, p_app->mesh.index_offset, VK_INDEX_TYPE_UINT32);
-
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipe.layout, 0, 1, &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
-	vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[0], 1, 0, 0, 0);
+
+	for (u32 o = 0; o < p_app->obj.mesh->object_count; ++o) {
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
+		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
+	}
 
 	vkCmdEndRenderPass(command_buffer);
 
@@ -2176,14 +2214,51 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 ///////////////////////////////////////
 void clean(_app *p_app) {
 
-	fast_obj_destroy(p_app->obj.mesh);
+
+	for (u32 o = 0; o < p_app->obj.mesh->object_count; ++o) {
+		free(p_app->obj.vertices[o]);
+		free(p_app->obj.indices[o]);
+		free(p_app->obj.face_indices[o]);
+		free(p_app->obj.material_indices[o]);
+		free(p_app->obj.group_indices[o]);
+		free(p_app->obj.object_indices[o]);
+		free(p_app->obj.texture_indices[o]);
+		p_app->obj.vertices[o] = NULL;
+		p_app->obj.indices[o] = NULL;
+		p_app->obj.face_indices[o] = NULL;
+		p_app->obj.material_indices[o] = NULL;
+		p_app->obj.group_indices[o] = NULL;
+		p_app->obj.object_indices[o] = NULL;
+		p_app->obj.texture_indices[o] = NULL;
+	}
+
+	free(p_app->obj.vertices);
+	free(p_app->obj.indices);
+	free(p_app->obj.face_indices);
+	free(p_app->obj.material_indices);
+	free(p_app->obj.group_indices);
+	free(p_app->obj.object_indices);
+	free(p_app->obj.texture_indices);
+	free(p_app->obj.vertices_count);
+	free(p_app->obj.indices_count);
+	p_app->obj.vertices = NULL;
+	p_app->obj.indices = NULL;
+	p_app->obj.face_indices = NULL;
+	p_app->obj.material_indices = NULL;
+	p_app->obj.group_indices = NULL;
+	p_app->obj.object_indices = NULL;
+	p_app->obj.texture_indices = NULL;
+	p_app->obj.vertices_count = NULL;
+	p_app->obj.indices_count = NULL;
 
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 
 	vkDestroySampler(p_app->device.logical, p_app->tex.sampler, NULL);
-	vkDestroyImageView(p_app->device.logical, p_app->tex.image_view, NULL);
-	vmaDestroyImage(p_app->mem.alloc, p_app->tex.image, p_app->tex.image_allocation);
+	for (int i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
+		vkDestroyImageView(p_app->device.logical, p_app->tex.image_views[i], NULL);
+		vmaDestroyImage(p_app->mem.alloc, p_app->tex.images[i], p_app->tex.image_allocations[i]);
+	}
 
 	vkDestroyDescriptorPool(p_app->device.logical, p_app->descriptor.pool, NULL);
 	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipe.descriptor_set_layout, NULL);
@@ -2200,7 +2275,10 @@ void clean(_app *p_app) {
 	p_app->uniform.buffer_allocations = NULL;
 	p_app->uniform.buffers_mapped = NULL;
 
-	vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.buffer, p_app->mesh.buffer_allocation);
+	for (u32 i = 0; i < p_app->obj.mesh->object_count; i++) {
+		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.vertex_buffers[i], p_app->mesh.vertex_allocations[i]);
+		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.index_buffers[i], p_app->mesh.index_allocations[i]);
+	}
 
 	free(p_app->cmd.buffers);
 	p_app->cmd.buffers = NULL;
@@ -2220,6 +2298,8 @@ void clean(_app *p_app) {
 	p_app->sync.render_finished_semaphores = NULL;
 	free(p_app->sync.in_flight_fences);
 	p_app->sync.in_flight_fences = NULL;
+
+	fast_obj_destroy(p_app->obj.mesh);
 
 	vkDestroyCommandPool(p_app->device.logical, p_app->cmd.pool, NULL);
 
@@ -2389,7 +2469,7 @@ void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
 
 					if (idx.t >= 0 && idx.t < mesh->texcoord_count) {
 						v.tex[0] = mesh->texcoords[2 * idx.t + 0];
-						v.tex[1] = mesh->texcoords[2 * idx.t + 1];
+						v.tex[1] = 1.0f - mesh->texcoords[2 * idx.t + 1];
 					}
 
 					if (idx.n >= 0 && idx.n < mesh->normal_count) {
@@ -2398,7 +2478,9 @@ void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
 						v.norm[2] = mesh->normals[3 * idx.n + 2];
 					}
 
-					uint32_t hash = 5381;
+					v.tex_index = mesh->materials[mat].map_Kd - 1;
+
+					u32 hash = 5381;
 					unsigned char* bytes = (unsigned char*)&v;
 					for (size_t j = 0; j < sizeof(_vertex); j++) {
 						hash = ((hash << 5) + hash) + bytes[j];

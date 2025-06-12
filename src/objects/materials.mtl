@@ -1,0 +1,23 @@
+newmtl example_one
+
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.0 0.0 0.0
+
+map_Kd ../textures/example_one.png
+
+newmtl example_two
+
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.0 0.0 0.0
+
+map_Kd ../textures/example_two.png
+
+newmtl viking_room
+
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.0 0.0 0.0
+
+map_Kd ../textures/viking_room.png
