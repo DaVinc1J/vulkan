@@ -169,7 +169,7 @@ typedef struct _app_config {
 	u32 win_height;
 	char *vert_shader_path;
 	char *frag_shader_path;
-	char *object_paths[MAX_OBJECT_FILES];
+	char **object_paths;
 	u32 object_files_count;
 } _app_config;
 
@@ -197,6 +197,15 @@ typedef struct _app_view {
 	float near_plane;
 	float far_plane;
 	float rotation_speed;
+	float camera_speed;
+	float sensitivity;
+	float strafe_amount;
+	float lerp_speed;
+	vec3 cam_offset;
+	vec3 cam_offset_goal;
+	double last_mouse_x, last_mouse_y;
+	bool first_mouse;
+	float yaw, pitch;
 } _app_view;
 
 typedef struct _app {
