@@ -146,6 +146,7 @@ void recreate_swapchain(_app *p_app);
 void update_uniform_buffer(_app *p_app, u32 current_image);
 void update_view(_app *p_app);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 //// MAIN LOOP ////
 
 //// CLEAN UP ////
@@ -330,14 +331,12 @@ int main() {
 	app.config.frag_shader_path = "src/shaders/frag.spv";
 
 	char* object_paths[] = {
-		"src/objects/viking_room.obj",
-		"src/objects/example.obj"
+		"src/objects/viking_room.obj"
 	};
 
 	app.config.object_files_count = (u32)(sizeof(object_paths) / sizeof(object_paths[0]));
 	app.config.object_paths = malloc(sizeof(char*) * app.config.object_files_count);
 	app.config.object_paths[0] = "src/objects/viking_room.obj";
-	app.config.object_paths[1] = "src/objects/example.obj";
 
 	glm_vec3_copy((vec3){2.0f, 2.0f, 2.0f}, app.view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, app.view.target);
@@ -346,11 +345,19 @@ int main() {
 	app.view.near_plane = 0.1f;
 	app.view.far_plane = 100.0f;
 	app.view.rotation_speed = 0.0f;
-	app.view.camera_speed = 0.2f;
+	app.view.forward_speed = 0.4f;
+	app.view.back_speed = 0.4f;
+	app.view.up_speed = 0.4f;
+	app.view.down_speed = 0.4f;
+	app.view.left_speed = 0.15f;
+	app.view.right_speed = 0.15f;
+	app.view.strafe_amount = 0.25f;
+	app.view.lerp_speed = 0.2f;
 	app.view.sensitivity = 0.1f;
-	app.view.first_mouse = true;
 	app.view.yaw = -90.0f;
 	app.view.pitch = 0.0f;
+	app.view.first_mouse = true;
+	app.view.mouse_locked = true;
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -373,6 +380,7 @@ void window_init(_app *p_app) {
 	glfwSetFramebufferSizeCallback(p_app->win.window, framebuffer_resize_callback);
 	glfwSetInputMode(p_app->win.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetCursorPosCallback(p_app->win.window, mouse_callback);
+	glfwSetMouseButtonCallback(p_app->win.window, mouse_button_callback);
 }
 
 void framebuffer_resize_callback(GLFWwindow* window, int width, int height) {
@@ -2366,91 +2374,112 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 }
 
 void update_view(_app *p_app) {
-    vec3 front;
-    front[0] = cos(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
-    front[1] = sin(glm_rad(p_app->view.pitch));
-    front[2] = sin(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
-    glm_vec3_normalize_to(front, front);
 
-    vec3 world_up = {0.0f, 1.0f, 0.0f};
-    vec3 right;
-    glm_vec3_cross(front, world_up, right);
-    glm_vec3_normalize(right);
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_ESCAPE) == GLFW_PRESS && p_app->view.mouse_locked) {
+		glfwSetInputMode(p_app->win.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		p_app->view.mouse_locked = false;
+		p_app->view.first_mouse = true;
+	}
 
-    vec3 up;
-    glm_vec3_cross(right, front, up);
-    glm_vec3_normalize(up);
-    glm_vec3_copy(up, p_app->view.up);
+	if (!p_app->view.mouse_locked) {
+		return;
+	}
 
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
-        p_app->view.cam_offset_goal[0] = -p_app->view.strafe_amount;
-    } else if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
-        p_app->view.cam_offset_goal[0] = p_app->view.strafe_amount;
-    } else {
-        p_app->view.cam_offset_goal[0] = 0.0f;
-    }
+	vec3 front;
+	front[0] = cos(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
+	front[1] = sin(glm_rad(p_app->view.pitch));
+	front[2] = sin(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
+	glm_vec3_normalize_to(front, front);
 
-    for (int i = 0; i < 3; ++i) {
-        p_app->view.cam_offset[i] += (p_app->view.cam_offset_goal[i] - p_app->view.cam_offset[i]) * p_app->view.lerp_speed;
-    }
+	vec3 world_up = {0.0f, 1.0f, 0.0f};
+	vec3 right;
+	glm_vec3_cross(front, world_up, right);
+	glm_vec3_normalize(right);
 
-    vec3 offset_world = {0.0f, 0.0f, 0.0f};
-    glm_vec3_scale(right, p_app->view.cam_offset[0], offset_world);
+	vec3 up;
+	glm_vec3_cross(right, front, up);
+	glm_vec3_normalize(up);
+	glm_vec3_copy(up, p_app->view.up);
 
-    vec3 move_pos;
-    glm_vec3_copy(p_app->view.camera_pos, move_pos);
-    vec3 tmp;
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_W) == GLFW_PRESS) {
-        glm_vec3_scale(front, p_app->view.camera_speed, tmp);
-        glm_vec3_add(move_pos, tmp, move_pos);
-    }
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_S) == GLFW_PRESS) {
-        glm_vec3_scale(front, -p_app->view.camera_speed, tmp);
-        glm_vec3_add(move_pos, tmp, move_pos);
-    }
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
-        glm_vec3_scale(right, -p_app->view.camera_speed, tmp);
-        glm_vec3_add(move_pos, tmp, move_pos);
-    }
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
-        glm_vec3_scale(right, p_app->view.camera_speed, tmp);
-        glm_vec3_add(move_pos, tmp, move_pos);
-    }
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        move_pos[1] -= p_app->view.camera_speed;
-    if (glfwGetKey(p_app->win.window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        move_pos[1] += p_app->view.camera_speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
+		p_app->view.cam_offset_goal[0] = -p_app->view.strafe_amount;
+	} else if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
+		p_app->view.cam_offset_goal[0] = p_app->view.strafe_amount;
+	} else {
+		p_app->view.cam_offset_goal[0] = 0.0f;
+	}
 
-    vec3 cam_actual_pos;
-    glm_vec3_add(move_pos, offset_world, cam_actual_pos);
+	for (int i = 0; i < 3; ++i) {
+		p_app->view.cam_offset[i] += (p_app->view.cam_offset_goal[i] - p_app->view.cam_offset[i]) * p_app->view.lerp_speed;
+	}
 
-    glm_vec3_copy(cam_actual_pos, p_app->view.camera_pos);
-    glm_vec3_add(p_app->view.camera_pos, front, p_app->view.target);
+	vec3 offset_world = {0.0f, 0.0f, 0.0f};
+	glm_vec3_scale(right, p_app->view.cam_offset[0], offset_world);
+
+	vec3 move_pos;
+	glm_vec3_copy(p_app->view.camera_pos, move_pos);
+	vec3 tmp;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_W) == GLFW_PRESS) {
+		glm_vec3_scale(front, p_app->view.forward_speed, tmp);
+		glm_vec3_add(move_pos, tmp, move_pos);
+	}
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_S) == GLFW_PRESS) {
+		glm_vec3_scale(front, -p_app->view.back_speed, tmp);
+		glm_vec3_add(move_pos, tmp, move_pos);
+	}
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
+		glm_vec3_scale(right, -p_app->view.left_speed, tmp);
+		glm_vec3_add(move_pos, tmp, move_pos);
+	}
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
+		glm_vec3_scale(right, p_app->view.right_speed, tmp);
+		glm_vec3_add(move_pos, tmp, move_pos);
+	}
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+		move_pos[1] -= p_app->view.down_speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		move_pos[1] += p_app->view.up_speed;
+
+	vec3 cam_actual_pos;
+	glm_vec3_add(move_pos, offset_world, cam_actual_pos);
+
+	glm_vec3_copy(cam_actual_pos, p_app->view.camera_pos);
+	glm_vec3_add(p_app->view.camera_pos, front, p_app->view.target);
 }
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
-    _app *p_app = (_app*)glfwGetWindowUserPointer(window);
+	_app *p_app = (_app*)glfwGetWindowUserPointer(window);
 
-    if (p_app->view.first_mouse) {
-        p_app->view.last_mouse_x = xpos;
-        p_app->view.last_mouse_y = ypos;
-        p_app->view.first_mouse = false;
-    }
+	if (p_app->view.first_mouse) {
+		p_app->view.last_mouse_x = xpos;
+		p_app->view.last_mouse_y = ypos;
+		p_app->view.first_mouse = false;
+	}
 
-    float dx = xpos - p_app->view.last_mouse_x;
-    float dy = p_app->view.last_mouse_y - ypos;
+	float dx = xpos - p_app->view.last_mouse_x;
+	float dy = p_app->view.last_mouse_y - ypos;
 
-    p_app->view.last_mouse_x = xpos;
-    p_app->view.last_mouse_y = ypos;
+	p_app->view.last_mouse_x = xpos;
+	p_app->view.last_mouse_y = ypos;
 
-    dx *= p_app->view.sensitivity;
-    dy *= p_app->view.sensitivity;
+	dx *= p_app->view.sensitivity;
+	dy *= p_app->view.sensitivity;
 
-    p_app->view.yaw += dx;
-    p_app->view.pitch += dy;
+	p_app->view.yaw += dx;
+	p_app->view.pitch += dy;
 
-    if (p_app->view.pitch > 89.0f) p_app->view.pitch = 89.0f;
-    if (p_app->view.pitch < -89.0f) p_app->view.pitch = -89.0f;
+	if (p_app->view.pitch > 89.0f) p_app->view.pitch = 89.0f;
+	if (p_app->view.pitch < -89.0f) p_app->view.pitch = -89.0f;
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	_app* p_app = (_app*)glfwGetWindowUserPointer(window);
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && !p_app->view.mouse_locked) {
+		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		p_app->view.first_mouse = true;
+		p_app->view.mouse_locked = true;
+	}
 }
 
 ///////////////////////////////////////

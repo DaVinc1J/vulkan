@@ -197,7 +197,12 @@ typedef struct _app_view {
 	float near_plane;
 	float far_plane;
 	float rotation_speed;
-	float camera_speed;
+	float forward_speed;
+	float back_speed;
+	float up_speed;
+	float down_speed;
+	float left_speed;
+	float right_speed;
 	float sensitivity;
 	float strafe_amount;
 	float lerp_speed;
@@ -205,6 +210,7 @@ typedef struct _app_view {
 	vec3 cam_offset_goal;
 	double last_mouse_x, last_mouse_y;
 	bool first_mouse;
+	bool mouse_locked;
 	float yaw, pitch;
 } _app_view;
 
