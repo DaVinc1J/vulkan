@@ -37,7 +37,7 @@ u32 clamp(u32 n, u32 min, u32 max) {
 }
 
 //// obj //// 
-void flatten(fastObjMesh* mesh, _app_obj* p_app_obj);
+void flatten(_app_obj* p_obj);
 void read_obj_file(_app *p_app);
 
 //// GLFW INIT ////
@@ -94,7 +94,7 @@ void create_descriptor_set_layout(_app *p_app);
 
 // graphics pipeline //
 char* read_file(_app *p_app, const char *filename, size_t* shader_code_size);
-void create_graphics_pipeline(_app *p_app);
+void create_graphics_pipelines(_app *p_app);
 VkShaderModule create_shader_module(_app *p_app, const char* shader_code, size_t shader_code_size);
 
 // command pool //
@@ -189,23 +189,131 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 
 //// VERTEX READ ////
 
-//// object read ////
 void read_obj_file(_app *p_app) {
+	u32 file_count = p_app->config.object_files_count;
+	_app_obj *fillers = calloc(file_count, sizeof(_app_obj));
 
-	p_app->obj.mesh = fast_obj_read(p_app->config.object_path);
+	p_app->obj.object_count = 0;
+	p_app->obj.texture_count = 0;
 
-	p_app->obj.vertices = malloc(p_app->obj.mesh->object_count * sizeof(_vertex*));
-	p_app->obj.indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
-	p_app->obj.face_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
-	p_app->obj.material_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
-	p_app->obj.group_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
-	p_app->obj.object_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
-	p_app->obj.texture_indices = malloc(p_app->obj.mesh->object_count * sizeof(u32*));
+	// First pass: load and flatten
+	for (u32 i = 0; i < file_count; i++) {
+		fillers[i].mesh = fast_obj_read(p_app->config.object_paths[i]);
+		u32 oc = fillers[i].mesh->object_count;
 
-	p_app->obj.vertices_count = malloc(p_app->obj.mesh->object_count * sizeof(u32));
-	p_app->obj.indices_count = malloc(p_app->obj.mesh->object_count * sizeof(u32));
+		fillers[i].vertices = malloc(oc * sizeof(_vertex*));
+		fillers[i].indices = malloc(oc * sizeof(u32*));
+		fillers[i].face_indices = malloc(oc * sizeof(u32*));
+		fillers[i].material_indices = malloc(oc * sizeof(u32*));
+		fillers[i].group_indices = malloc(oc * sizeof(u32*));
+		fillers[i].object_indices = malloc(oc * sizeof(u32*));
+		fillers[i].texture_indices = malloc(oc * sizeof(u32*));
 
-	flatten(p_app->obj.mesh, &p_app->obj);
+		fillers[i].vertices_count = malloc(oc * sizeof(u32));
+		fillers[i].indices_count = malloc(oc * sizeof(u32));
+
+		flatten(&fillers[i]);
+		p_app->obj.object_count += oc;
+		p_app->obj.texture_count += fillers[i].mesh->texture_count - 1;
+	}
+
+	_app_obj *dst = &p_app->obj;
+	dst->mesh = NULL;
+	dst->vertices = malloc(dst->object_count * sizeof(_vertex*));
+	dst->indices = malloc(dst->object_count * sizeof(u32*));
+	dst->face_indices = malloc(dst->object_count * sizeof(u32*));
+	dst->material_indices = malloc(dst->object_count * sizeof(u32*));
+	dst->group_indices = malloc(dst->object_count * sizeof(u32*));
+	dst->object_indices = malloc(dst->object_count * sizeof(u32*));
+	dst->texture_indices = malloc(dst->object_count * sizeof(u32*));
+	dst->vertices_count = malloc(dst->object_count * sizeof(u32));
+	dst->indices_count = malloc(dst->object_count * sizeof(u32));
+	dst->textures = malloc(dst->texture_count * sizeof(fastObjTexture));
+
+	u32 dst_i = 0;
+	u32 tex_offset = 0;
+	for (u32 i = 0; i < file_count; i++) {
+		u32 oc = fillers[i].mesh->object_count;
+		u32 tc = fillers[i].mesh->texture_count;
+
+		for (u32 t = 1; t < tc; t++) {
+			dst->textures[tex_offset + t - 1] = fillers[i].mesh->textures[t];
+			if (fillers[i].mesh->textures[t].path)
+				dst->textures[tex_offset + t - 1].path = strdup(fillers[i].mesh->textures[t].path);
+			if (fillers[i].mesh->textures[t].name)
+				dst->textures[tex_offset + t - 1].name = strdup(fillers[i].mesh->textures[t].name);
+		}
+
+		for (u32 j = 0; j < oc; j++, dst_i++) {
+			u32 v_count = fillers[i].vertices_count[j];
+			u32 i_count = fillers[i].indices_count[j];
+
+			dst->vertices[dst_i] = malloc(sizeof(_vertex) * v_count);
+			dst->indices[dst_i] = malloc(sizeof(u32) * i_count);
+			dst->face_indices[dst_i] = malloc(sizeof(u32) * i_count);
+			dst->material_indices[dst_i] = malloc(sizeof(u32) * i_count);
+			dst->group_indices[dst_i] = malloc(sizeof(u32) * i_count);
+			dst->object_indices[dst_i] = malloc(sizeof(u32) * i_count);
+			dst->texture_indices[dst_i] = malloc(sizeof(u32) * i_count);
+
+			memcpy(dst->vertices[dst_i], fillers[i].vertices[j], sizeof(_vertex) * v_count);
+			memcpy(dst->indices[dst_i], fillers[i].indices[j], sizeof(u32) * i_count);
+			memcpy(dst->face_indices[dst_i], fillers[i].face_indices[j], sizeof(u32) * i_count);
+			memcpy(dst->material_indices[dst_i], fillers[i].material_indices[j], sizeof(u32) * i_count);
+			memcpy(dst->group_indices[dst_i], fillers[i].group_indices[j], sizeof(u32) * i_count);
+			memcpy(dst->object_indices[dst_i], fillers[i].object_indices[j], sizeof(u32) * i_count);
+
+			for (u32 k = 0; k < i_count; k++) {
+				u32 tex_id = fillers[i].texture_indices[j][k];
+				dst->texture_indices[dst_i][k] = tex_id > 0 ? (tex_offset + tex_id - 1) : UINT32_MAX;
+			}
+
+			dst->vertices_count[dst_i] = v_count;
+			dst->indices_count[dst_i] = i_count;
+		}
+
+		fast_obj_destroy(fillers[i].mesh);
+		free(fillers[i].vertices);
+		free(fillers[i].indices);
+		free(fillers[i].face_indices);
+		free(fillers[i].material_indices);
+		free(fillers[i].group_indices);
+		free(fillers[i].object_indices);
+		free(fillers[i].texture_indices);
+		free(fillers[i].vertices_count);
+		free(fillers[i].indices_count);
+
+		tex_offset += tc - 1;
+	}
+	free(fillers);
+
+	for (u32 o = 0; o < dst->object_count; o++) {
+		for (u32 k = 0; k < dst->indices_count[o]; k++) {
+			u32 idx = dst->indices[o][k];
+			dst->vertices[o][idx].tex_index = dst->texture_indices[o][k];
+		}
+	}
+
+	u32 tex_count = dst->texture_count;
+	u32 *remap_table = malloc(sizeof(u32) * tex_count);
+	u32 new_index = 0;
+
+	for (u32 i = 0; i < tex_count; i++) {
+		const char *path = dst->textures[i].path;
+		if (path && strlen(path) > 0) {
+			remap_table[i] = new_index++;
+		} else {
+			remap_table[i] = UINT32_MAX;
+		}
+	}
+
+	for (u32 o = 0; o < dst->object_count; o++) {
+		for (u32 v = 0; v < dst->vertices_count[o]; v++) {
+			u32 old = dst->vertices[o][v].tex_index;
+			dst->vertices[o][v].tex_index = (old < tex_count && remap_table[old] != UINT32_MAX) ? remap_table[old] : 0;
+		}
+	}
+	free(remap_table);
 }
 
 ///////////////////////////////////////////
@@ -218,7 +326,17 @@ int main() {
 	app.config.win_height = 800;
 	app.config.vert_shader_path = "src/shaders/vert.spv";
 	app.config.frag_shader_path = "src/shaders/frag.spv";
-	app.config.object_path = "src/objects/viking_room.obj";
+	app.config.object_paths[0] = "src/objects/viking_room.obj";
+	app.config.object_paths[1] = "src/objects/example.obj";
+	app.config.object_files_count = 2;
+
+	glm_vec3_copy((vec3){2.0f, 2.0f, 2.0f}, app.view.camera_pos);
+	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, app.view.target);
+	glm_vec3_copy((vec3){0.0f, 0.0f, 1.0f}, app.view.up);
+	app.view.fov_y = 40.0f;
+	app.view.near_plane = 0.1f;
+	app.view.far_plane = 10.0f;
+	app.view.rotation_speed = 15.0f;
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -264,7 +382,7 @@ void vulkan_init(_app *p_app) {
 	create_image_views(p_app);
 	create_render_pass(p_app);
 	create_descriptor_set_layout(p_app);
-	create_graphics_pipeline(p_app);
+	create_graphics_pipelines(p_app);
 	create_command_pool(p_app);
 	create_depth_resources(p_app);
 	create_framebuffers(p_app);
@@ -986,7 +1104,7 @@ void create_render_pass(_app *p_app) {
 		.pDependencies = &dependency,
 	};
 
-	if (vkCreateRenderPass(p_app->device.logical, &render_pass_create_info, NULL, &p_app->pipe.render_pass) != VK_SUCCESS) {
+	if (vkCreateRenderPass(p_app->device.logical, &render_pass_create_info, NULL, &p_app->pipeline.render_pass) != VK_SUCCESS) {
 		submit_debug_message(
 			p_app->inst.instance,
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -1010,7 +1128,7 @@ void create_descriptor_set_layout(_app *p_app) {
 
 	VkDescriptorSetLayoutBinding sampler_layout_binding = {
 		.binding = 1,
-		.descriptorCount = p_app->obj.mesh->texture_count - 1,
+		.descriptorCount = p_app->obj.texture_count,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.pImmutableSamplers = NULL,
 		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -1027,7 +1145,7 @@ void create_descriptor_set_layout(_app *p_app) {
 		.pBindings = bindings,
 	};
 
-	if (vkCreateDescriptorSetLayout(p_app->device.logical, &ubo_layout_create_info, NULL, &p_app->pipe.descriptor_set_layout) != VK_SUCCESS) {
+	if (vkCreateDescriptorSetLayout(p_app->device.logical, &ubo_layout_create_info, NULL, &p_app->pipeline.descriptor_set_layout) != VK_SUCCESS) {
 		submit_debug_message(
 			p_app->inst.instance,
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -1075,7 +1193,7 @@ char* read_file(_app *p_app, const char* filename, size_t* shader_code_size) {
 }
 
 //// create pipeline ////
-void create_graphics_pipeline(_app *p_app) {
+void create_graphics_pipelines(_app *p_app) {
 	size_t vert_shader_code_size;
 	size_t frag_shader_code_size;
 
@@ -1085,180 +1203,130 @@ void create_graphics_pipeline(_app *p_app) {
 	VkShaderModule vert_shader_module = create_shader_module(p_app, vert_shader_code, vert_shader_code_size); 
 	VkShaderModule frag_shader_module = create_shader_module(p_app, frag_shader_code, frag_shader_code_size);
 
-	u32 attribute_count = 0;
-	get_attribute_descriptions(NULL, &attribute_count);
-	VkVertexInputAttributeDescription attribute_descriptions[attribute_count];
-	get_attribute_descriptions(attribute_descriptions, NULL);
-	VkVertexInputBindingDescription binding_description = get_binding_description();
-
-	VkPipelineShaderStageCreateInfo vert_shader_stage_create_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_VERTEX_BIT,
-		.module = vert_shader_module,
-		.pName = "main",
+	VkPipelineShaderStageCreateInfo shader_stages[2] = {
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = vert_shader_module, .pName = "main" },
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = frag_shader_module, .pName = "main" },
 	};
 
-	VkPipelineShaderStageCreateInfo frag_shader_stage_create_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.module = frag_shader_module,
-		.pName = "main",
-	};
+	VkVertexInputBindingDescription binding_desc = get_binding_description();
+	u32 attr_count = 0;
+	get_attribute_descriptions(NULL, &attr_count);
+	VkVertexInputAttributeDescription attr_descs[attr_count];
+	get_attribute_descriptions(attr_descs, NULL);
 
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vert_shader_stage_create_info, frag_shader_stage_create_info};
-
-	VkDynamicState dynamic_states[] = {
-		VK_DYNAMIC_STATE_VIEWPORT,
-		VK_DYNAMIC_STATE_SCISSOR
-	};
-
-	u32 dynamic_states_size = (sizeof(dynamic_states) / sizeof(VkDynamicState));
-
-	VkPipelineDynamicStateCreateInfo dynamic_state_create_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.dynamicStateCount = dynamic_states_size,
-		.pDynamicStates = dynamic_states,
-	};
-
-	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {
+	VkPipelineVertexInputStateCreateInfo vertex_input = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		.vertexBindingDescriptionCount = 1,
-		.vertexAttributeDescriptionCount = attribute_count,
-		.pVertexBindingDescriptions = &binding_description,
-		.pVertexAttributeDescriptions = attribute_descriptions,
+		.vertexAttributeDescriptionCount = attr_count,
+		.pVertexBindingDescriptions = &binding_desc,
+		.pVertexAttributeDescriptions = attr_descs,
 	};
 
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {
+	VkPipelineInputAssemblyStateCreateInfo input_asm = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		.primitiveRestartEnable = VK_FALSE,
 	};
 
 	VkViewport viewport = {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = (float) p_app->swp.extent.width,
-		.height = (float) p_app->swp.extent.height,
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
+		.width = p_app->swp.extent.width,
+		.height = p_app->swp.extent.height,
+		.minDepth = 0.0f, .maxDepth = 1.0f,
 	};
 
-	VkRect2D scissor = {
-		.offset = {0, 0},
-		.extent = p_app->swp.extent,
-	};
+	VkRect2D scissor = { .extent = p_app->swp.extent };
 
-	VkPipelineViewportStateCreateInfo viewport_state_create_info = {
+	VkPipelineViewportStateCreateInfo viewport_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-		.scissorCount = 1,
-		.pScissors = &scissor,
+		.viewportCount = 1, .pViewports = &viewport,
+		.scissorCount = 1, .pScissors = &scissor,
 	};
 
+	VkDynamicState dynamic_states[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+	VkPipelineDynamicStateCreateInfo dynamic_state = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.dynamicStateCount = 2,
+		.pDynamicStates = dynamic_states,
+	};
 
-	VkPipelineRasterizationStateCreateInfo rasterizer_state_create_info = {
+	VkPipelineRasterizationStateCreateInfo raster = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.depthClampEnable = VK_FALSE,
-		.rasterizerDiscardEnable = VK_FALSE,
 		.polygonMode = VK_POLYGON_MODE_FILL,
-		.lineWidth = 1.0f,
 		.cullMode = VK_CULL_MODE_BACK_BIT,
 		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-		.depthBiasEnable = VK_FALSE,
-		.depthBiasConstantFactor = 0.0f,
-		.depthBiasClamp = 0.0f,
-		.depthBiasSlopeFactor = 0.0f,
+		.lineWidth = 1.0f,
 	};
 
-	VkPipelineMultisampleStateCreateInfo multisampling_state_create_info = {
+	VkPipelineMultisampleStateCreateInfo multisample = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.sampleShadingEnable = VK_FALSE,
 		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-		.minSampleShading = 1.0f,
-		.pSampleMask = NULL,
-		.alphaToCoverageEnable = VK_FALSE,
-		.alphaToOneEnable = VK_FALSE,
 	};
 
-	VkPipelineColorBlendAttachmentState colour_blend_attachment_state = {
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-.blendEnable = VK_TRUE,
-.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-.colorBlendOp = VK_BLEND_OP_ADD,
-.alphaBlendOp = VK_BLEND_OP_ADD,
-	};
-
-	VkPipelineColorBlendStateCreateInfo colour_blend_state_create_info = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.logicOpEnable = VK_FALSE,
-		.logicOp = VK_LOGIC_OP_COPY,
-		.attachmentCount = 1,
-		.pAttachments = &colour_blend_attachment_state,
-		.blendConstants[0] = 0.0f,
-		.blendConstants[1] = 0.0f,
-		.blendConstants[2] = 0.0f,
-		.blendConstants[3] = 0.0f,
-	};
-
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {
+	VkPipelineDepthStencilStateCreateInfo depth = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 		.depthTestEnable = VK_TRUE,
-		.depthWriteEnable = VK_TRUE,
 		.depthCompareOp = VK_COMPARE_OP_LESS,
-		.depthBoundsTestEnable = VK_FALSE,
-		.minDepthBounds = 0.0f,
-		.maxDepthBounds = 1.0f,
-		.stencilTestEnable = VK_FALSE,
-		.front = {},
-		.back = {},
 	};
 
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
+	VkPipelineColorBlendAttachmentState blend_opaque = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable = VK_FALSE
+	};
+
+	VkPipelineColorBlendAttachmentState blend_transparent = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+	};
+
+	VkPipelineColorBlendStateCreateInfo blend_state = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.attachmentCount = 1,
+	};
+
+	VkPipelineLayoutCreateInfo layout_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
-		.pSetLayouts = &p_app->pipe.descriptor_set_layout,
-		.pushConstantRangeCount = 0,
-		.pPushConstantRanges = NULL,
+		.pSetLayouts = &p_app->pipeline.descriptor_set_layout,
 	};
 
-	if (vkCreatePipelineLayout(p_app->device.logical, &pipeline_layout_create_info, NULL, &p_app->pipe.layout) != VK_SUCCESS) {
-		submit_debug_message(
-			p_app->inst.instance,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			"pipeline layout => failed to create pipeline layout"
-		);
+	if (vkCreatePipelineLayout(p_app->device.logical, &layout_info, NULL, &p_app->pipeline.layout) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "pipeline layout => failed");
 		exit(EXIT_FAILURE);
 	}
 
-	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {
+	VkGraphicsPipelineCreateInfo pipeline_info = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,
-		.pStages = shaderStages,
-		.pVertexInputState = &vertex_input_state_create_info,
-		.pInputAssemblyState = &input_assembly_state_create_info,
-		.pViewportState = &viewport_state_create_info,
-		.pRasterizationState = &rasterizer_state_create_info,
-		.pMultisampleState = &multisampling_state_create_info,
-		.pDepthStencilState = &depth_stencil_state_create_info,
-		.pColorBlendState = &colour_blend_state_create_info,
-		.pDynamicState = &dynamic_state_create_info,
-		.layout = p_app->pipe.layout,
-		.renderPass = p_app->pipe.render_pass,
-		.subpass = 0,
-		.basePipelineHandle = VK_NULL_HANDLE,
-		.basePipelineIndex = -1,
+		.pStages = shader_stages,
+		.pVertexInputState = &vertex_input,
+		.pInputAssemblyState = &input_asm,
+		.pViewportState = &viewport_state,
+		.pRasterizationState = &raster,
+		.pMultisampleState = &multisample,
+		.pDepthStencilState = &depth,
+		.pDynamicState = &dynamic_state,
+		.layout = p_app->pipeline.layout,
+		.renderPass = p_app->pipeline.render_pass,
 	};
 
-	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, NULL, &p_app->pipe.pipeline) != VK_SUCCESS) {
-		submit_debug_message(
-			p_app->inst.instance,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			"pipeline => failed to create pipeline"
-		);
+	depth.depthWriteEnable = VK_TRUE;
+	blend_state.pAttachments = &blend_opaque;
+	pipeline_info.pColorBlendState = &blend_state;
+	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.opaque) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "opaque pipeline => failed");
+		exit(EXIT_FAILURE);
+	}
+
+	depth.depthWriteEnable = VK_FALSE;
+	blend_state.pAttachments = &blend_transparent;
+	pipeline_info.pColorBlendState = &blend_state;
+	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.transparent) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "transparent pipeline => failed");
 		exit(EXIT_FAILURE);
 	}
 
@@ -1364,11 +1432,11 @@ void create_depth_resources(_app *p_app) {
 //////// create framebuffers ////////
 /////////////////////////////////////
 void create_framebuffers(_app *p_app) {
-	p_app->pipe.swapchain_framebuffers = malloc(sizeof(VkFramebuffer) * p_app->swp.images_count);
+	p_app->pipeline.swapchain_framebuffers = malloc(sizeof(VkFramebuffer) * p_app->swp.images_count);
 
 	VkFramebufferCreateInfo framebuffer_create_info = {
 		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-		.renderPass = p_app->pipe.render_pass,
+		.renderPass = p_app->pipeline.render_pass,
 		.width = p_app->swp.extent.width,
 		.height = p_app->swp.extent.height,
 		.layers = 1,
@@ -1387,7 +1455,7 @@ void create_framebuffers(_app *p_app) {
 		framebuffer_create_info.attachmentCount = sizeof(attachments) / sizeof(attachments[0]);
 		framebuffer_create_info.pAttachments = attachments;
 
-		if (vkCreateFramebuffer(p_app->device.logical, &framebuffer_create_info, NULL, &p_app->pipe.swapchain_framebuffers[i]) != VK_SUCCESS) {
+		if (vkCreateFramebuffer(p_app->device.logical, &framebuffer_create_info, NULL, &p_app->pipeline.swapchain_framebuffers[i]) != VK_SUCCESS) {
 			submit_debug_message(
 				p_app->inst.instance,
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -1403,63 +1471,80 @@ void create_framebuffers(_app *p_app) {
 /////////////////////////
 //// create texture ////
 void create_texture_image(_app *p_app) {
+	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.texture_count);
+	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.texture_count);
+	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->obj.texture_count);
+	p_app->tex.has_alpha = calloc(p_app->obj.texture_count, sizeof(u32));
 
-	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.mesh->texture_count);
-	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.mesh->texture_count);
-	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->obj.mesh->texture_count);
+	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+		const char *path = p_app->obj.textures[i].path;
 
-	for (u32 i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
-		int texture_width, texture_height, texture_channels;
+		if (!path || strlen(path) == 0) {
+			p_app->tex.images[i] = VK_NULL_HANDLE;
+			p_app->tex.image_allocations[i] = NULL;
+			p_app->tex.image_views[i] = VK_NULL_HANDLE;
+			continue;
+		}
 
-		stbi_uc *pixels = stbi_load(p_app->obj.mesh->textures[i + 1].path, &texture_width, &texture_height, &texture_channels, STBI_rgb_alpha);
-		VkDeviceSize image_size = texture_width * texture_height * 4;
-
+		int tex_w, tex_h, tex_channels;
+		stbi_uc *pixels = stbi_load(path, &tex_w, &tex_h, &tex_channels, STBI_rgb_alpha);
 		if (!pixels) {
 			submit_debug_message(
 				p_app->inst.instance,
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-				"texture image => failed to load texture image"
+				"texture image => failed to load texture: %s", path
 			);
 			exit(EXIT_FAILURE);
 		}
 
-		VkBuffer staging_buffer;
-		VmaAllocation staging_buffer_allocation;
+		u32 pixel_count = (u32)(tex_w * tex_h);
+		for (u32 j = 0; j < pixel_count; j++) {
+			if (pixels[j * 4 + 3] < 255) {
+				p_app->tex.has_alpha[i] = 1;
+				break;
+			}
+		}
 
-		VkBufferCreateInfo buffer_create_info = {
+		VkDeviceSize image_size = tex_w * tex_h * 4;
+
+		VkBuffer staging_buffer;
+		VmaAllocation staging_alloc;
+		VkBufferCreateInfo buffer_info = {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.size = image_size,
 			.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		};
-
-		VmaAllocationCreateInfo alloc_create_info = {
-			.usage = VMA_MEMORY_USAGE_CPU_ONLY,
-		};
-
-		vmaCreateBuffer(p_app->mem.alloc, &buffer_create_info, &alloc_create_info, &staging_buffer, &staging_buffer_allocation, NULL);
+		VmaAllocationCreateInfo alloc_info = { .usage = VMA_MEMORY_USAGE_CPU_ONLY };
+		vmaCreateBuffer(p_app->mem.alloc, &buffer_info, &alloc_info, &staging_buffer, &staging_alloc, NULL);
 
 		void *data;
-		vmaMapMemory(p_app->mem.alloc, staging_buffer_allocation, &data);
+		vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
 		memcpy(data, pixels, (size_t)image_size);
-		vmaUnmapMemory(p_app->mem.alloc, staging_buffer_allocation);
-
+		vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
 		stbi_image_free(pixels);
 
-		create_image(p_app, &p_app->tex.images[i], &p_app->tex.image_allocations[i], texture_width, texture_height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+		create_image(p_app, &p_app->tex.images[i], &p_app->tex.image_allocations[i],
+							 tex_w, tex_h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+							 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+							 VMA_MEMORY_USAGE_GPU_ONLY);
 
-		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		copy_buffer_to_image(p_app, staging_buffer, p_app->tex.images[i], texture_width, texture_height);
-		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB,
+													VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copy_buffer_to_image(p_app, staging_buffer, p_app->tex.images[i], tex_w, tex_h);
+		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB,
+													VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_buffer_allocation);
+		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
 	}
 }
 
 //// texture image view ////
 void create_texture_image_view(_app *p_app) {
-	for (u32 i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
-		create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+		if (p_app->tex.images[i] != VK_NULL_HANDLE) {
+			create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+		}
 	}
 }
 
@@ -1669,7 +1754,7 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 
 //// create combined_buffer ////
 void create_mesh_buffer(_app *p_app) {
-	u32 object_count = p_app->obj.mesh->object_count;
+	u32 object_count = p_app->obj.object_count;
 
 	p_app->mesh.vertex_buffers = malloc(sizeof(VkBuffer) * object_count);
 	p_app->mesh.index_buffers = malloc(sizeof(VkBuffer) * object_count);
@@ -1766,7 +1851,7 @@ void create_uniform_buffers(_app *p_app) {
 void create_descriptor_pool(_app *p_app) {
 	VkDescriptorPoolSize pool_sizes[2] = {
 		{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_FRAMES_IN_FLIGHT },
-		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * (p_app->obj.mesh->texture_count - 1) }
+		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * p_app->obj.texture_count }
 	};
 
 	VkDescriptorPoolCreateInfo pool_create_info = {
@@ -1791,7 +1876,7 @@ void create_descriptor_sets(_app *p_app) {
 	VkDescriptorSetLayout *layouts = malloc(sizeof(VkDescriptorSetLayout) * MAX_FRAMES_IN_FLIGHT);
 
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		layouts[i] = p_app->pipe.descriptor_set_layout;
+		layouts[i] = p_app->pipeline.descriptor_set_layout;
 	}
 
 	VkDescriptorSetAllocateInfo alloc_info = {
@@ -1817,9 +1902,19 @@ void create_descriptor_sets(_app *p_app) {
 			.range = sizeof(_ubo)
 		};
 
-		VkDescriptorImageInfo *image_infos = malloc(sizeof(VkDescriptorImageInfo) * (p_app->obj.mesh->texture_count - 1));
-		for (u32 j = 0; j < (p_app->obj.mesh->texture_count - 1); j++) {
-			image_infos[j] = (VkDescriptorImageInfo){
+		// Count valid textures
+		u32 valid_tex_count = 0;
+		for (u32 j = 0; j < p_app->obj.texture_count; j++) {
+			if (p_app->tex.image_views[j] != VK_NULL_HANDLE) {
+				valid_tex_count++;
+			}
+		}
+
+		VkDescriptorImageInfo *image_infos = malloc(sizeof(VkDescriptorImageInfo) * valid_tex_count);
+		u32 tex_i = 0;
+		for (u32 j = 0; j < p_app->obj.texture_count; j++) {
+			if (p_app->tex.image_views[j] == VK_NULL_HANDLE) continue;
+			image_infos[tex_i++] = (VkDescriptorImageInfo){
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				.imageView = p_app->tex.image_views[j],
 				.sampler = p_app->tex.sampler,
@@ -1842,7 +1937,7 @@ void create_descriptor_sets(_app *p_app) {
 				.dstBinding = 1,
 				.dstArrayElement = 0,
 				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.descriptorCount = (p_app->obj.mesh->texture_count - 1),
+				.descriptorCount = valid_tex_count,
 				.pImageInfo = image_infos,
 			}
 		};
@@ -1878,20 +1973,24 @@ void create_command_buffers(_app *p_app) {
 	}
 }
 
+int compare_render_order(const void* a, const void* b) {
+	const _render_order* ro_a = (const _render_order*)a;
+	const _render_order* ro_b = (const _render_order*)b;
+
+	if (ro_a->distance < ro_b->distance) return 1;
+	if (ro_a->distance > ro_b->distance) return -1;
+	return 0;
+}
+
 //// record command buffer ////
 void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t image_index) {
 	VkCommandBufferBeginInfo command_buffer_begin_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.flags = 0,
-		.pInheritanceInfo = NULL,
 	};
 
 	if (vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info) != VK_SUCCESS) {
-		submit_debug_message(
-			p_app->inst.instance,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			"command buffer => failed to begin record command buffer"
-		);
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			"command buffer => failed to begin record");
 		exit(EXIT_FAILURE);
 	}
 
@@ -1900,54 +1999,99 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		{ .depthStencil = {1.0f, 0} }
 	};
 
-
-	VkRenderPassBeginInfo render_pass_begin_info = {
+	VkRenderPassBeginInfo render_pass_info = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-		.renderPass = p_app->pipe.render_pass,
-		.framebuffer = p_app->pipe.swapchain_framebuffers[image_index],
-		.renderArea.offset = {0, 0},
-		.renderArea.extent = p_app->swp.extent,
-		.clearValueCount = sizeof(clear_values) / sizeof(clear_values[0]),
+		.renderPass = p_app->pipeline.render_pass,
+		.framebuffer = p_app->pipeline.swapchain_framebuffers[image_index],
+		.renderArea = { .offset = {0, 0}, .extent = p_app->swp.extent },
+		.clearValueCount = 2,
 		.pClearValues = clear_values,
 	};
 
-	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipe.pipeline);
+	vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport = {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = (float) p_app->swp.extent.width,
-		.height = (float) p_app->swp.extent.height,
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f,
+		.x = 0.0f, .y = 0.0f,
+		.width = (float)p_app->swp.extent.width,
+		.height = (float)p_app->swp.extent.height,
+		.minDepth = 0.0f, .maxDepth = 1.0f,
 	};
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
-	VkRect2D scissor = {
-		.offset = {0, 0},
-		.extent = p_app->swp.extent,
-	};
-	vkCmdSetScissor(command_buffer, 0, 1, &scissor);            
+	VkRect2D scissor = { .offset = {0, 0}, .extent = p_app->swp.extent };
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipe.layout, 0, 1, &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		p_app->pipeline.layout, 0, 1,
+		&p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
 
-	for (u32 o = 0; o < p_app->obj.mesh->object_count; ++o) {
+	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
+		bool transparent = false;
+		for (u32 k = 0; k < p_app->obj.indices_count[o]; ++k) {
+			u32 tex_idx = p_app->obj.texture_indices[o][k];
+			if (tex_idx != UINT32_MAX && p_app->tex.has_alpha[tex_idx]) {
+				transparent = true;
+				break;
+			}
+		}
+		if (transparent) continue;
+
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
+
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
 		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
 	}
 
+	_render_order* transparent_draw_order = malloc(sizeof(_render_order) * p_app->obj.object_count);
+	u32 t_count = 0;
+
+	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
+		bool transparent = false;
+		for (u32 k = 0; k < p_app->obj.indices_count[o]; ++k) {
+			u32 tex_idx = p_app->obj.texture_indices[o][k];
+			if (tex_idx != UINT32_MAX && p_app->tex.has_alpha[tex_idx]) {
+				transparent = true;
+				break;
+			}
+		}
+		if (!transparent) continue;
+
+		vec3 avg_pos = {0};
+		u32 v_count = p_app->obj.vertices_count[o];
+		for (u32 v = 0; v < v_count; ++v) {
+			glm_vec3_add(avg_pos, p_app->obj.vertices[o][v].pos, avg_pos);
+		}
+		glm_vec3_scale(avg_pos, 1.0f / v_count, avg_pos);
+
+		vec3 diff;
+		glm_vec3_sub(p_app->view.camera_pos, avg_pos, diff);
+		float dist_sq = glm_vec3_dot(diff, diff);
+
+		transparent_draw_order[t_count++] = (_render_order){ o, dist_sq };
+	}
+
+	qsort(transparent_draw_order, t_count, sizeof(_render_order), compare_render_order);
+
+	for (u32 i = 0; i < t_count; ++i) {
+		u32 o = transparent_draw_order[i].object_index;
+
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.transparent);
+
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
+		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
+	}
+
+	free(transparent_draw_order);
+
 	vkCmdEndRenderPass(command_buffer);
 
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
-		submit_debug_message(
-			p_app->inst.instance,
-			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			"command buffer => failed to end record command buffer"
-		);
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			"command buffer => failed to end record");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -2141,10 +2285,10 @@ void draw_frame(_app *p_app) {
 //// clear swapchain ////
 void cleanup_swapchain(_app *p_app) {
 	for (size_t i = 0; i < p_app->swp.images_count; i++) {
-		vkDestroyFramebuffer(p_app->device.logical, p_app->pipe.swapchain_framebuffers[i], NULL);
+		vkDestroyFramebuffer(p_app->device.logical, p_app->pipeline.swapchain_framebuffers[i], NULL);
 		vkDestroyImageView(p_app->device.logical, p_app->swp.image_views[i], NULL);
 	}
-	free(p_app->pipe.swapchain_framebuffers);
+	free(p_app->pipeline.swapchain_framebuffers);
 	free(p_app->swp.image_views);
 
 
@@ -2176,34 +2320,27 @@ void recreate_swapchain(_app *p_app) {
 void update_uniform_buffer(_app *p_app, u32 current_image) {
 	static struct timespec start_time;
 	static bool initialised = false;
-
 	if (!initialised) {
 		clock_gettime(CLOCK_MONOTONIC, &start_time);
 		initialised = true;
 	}
 
-
 	struct timespec current_time;
 	clock_gettime(CLOCK_MONOTONIC, &current_time);
-
 	float time = (current_time.tv_sec - start_time.tv_sec) +
 		(current_time.tv_nsec - start_time.tv_nsec) / 1e9f;
 
 	_ubo ubo;
-
 	glm_mat4_identity(ubo.model);
-	glm_rotate(ubo.model, glm_rad(15.0f) * time, (vec3){0.0f, 0.0f, 1.0f});
 
-	glm_lookat((vec3){2.0f, 2.0f, 2.0f},
-						(vec3){0.0f, 0.0f, 0.0f},
-						(vec3){0.0f, 0.0f, 1.0f},
-						ubo.view);
+	float angle = glm_rad(p_app->view.rotation_speed) * time;
+	glm_rotate(ubo.model, angle, (vec3){0.0f, 0.0f, 1.0f});
 
-	glm_perspective(glm_rad(40.0f),
-								 p_app->swp.extent.width / (float)p_app->swp.extent.height,
-								 0.1f, 10.0f,
-								 ubo.proj);
+	glm_lookat(p_app->view.camera_pos, p_app->view.target, p_app->view.up, ubo.view);
 
+	float aspect = p_app->swp.extent.width / (float)p_app->swp.extent.height;
+	glm_perspective(glm_rad(p_app->view.fov_y), aspect,
+								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
@@ -2213,9 +2350,7 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 //////////////// clean ////////////////
 ///////////////////////////////////////
 void clean(_app *p_app) {
-
-
-	for (u32 o = 0; o < p_app->obj.mesh->object_count; ++o) {
+	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
 		free(p_app->obj.vertices[o]);
 		free(p_app->obj.indices[o]);
 		free(p_app->obj.face_indices[o]);
@@ -2223,15 +2358,7 @@ void clean(_app *p_app) {
 		free(p_app->obj.group_indices[o]);
 		free(p_app->obj.object_indices[o]);
 		free(p_app->obj.texture_indices[o]);
-		p_app->obj.vertices[o] = NULL;
-		p_app->obj.indices[o] = NULL;
-		p_app->obj.face_indices[o] = NULL;
-		p_app->obj.material_indices[o] = NULL;
-		p_app->obj.group_indices[o] = NULL;
-		p_app->obj.object_indices[o] = NULL;
-		p_app->obj.texture_indices[o] = NULL;
 	}
-
 	free(p_app->obj.vertices);
 	free(p_app->obj.indices);
 	free(p_app->obj.face_indices);
@@ -2241,6 +2368,7 @@ void clean(_app *p_app) {
 	free(p_app->obj.texture_indices);
 	free(p_app->obj.vertices_count);
 	free(p_app->obj.indices_count);
+
 	p_app->obj.vertices = NULL;
 	p_app->obj.indices = NULL;
 	p_app->obj.face_indices = NULL;
@@ -2251,17 +2379,34 @@ void clean(_app *p_app) {
 	p_app->obj.vertices_count = NULL;
 	p_app->obj.indices_count = NULL;
 
+	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+		free(p_app->obj.textures[i].path);
+		free(p_app->obj.textures[i].name);
+	}
+	free(p_app->obj.textures);
+	p_app->obj.textures = NULL;
+
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 
 	vkDestroySampler(p_app->device.logical, p_app->tex.sampler, NULL);
-	for (int i = 0; i < p_app->obj.mesh->texture_count - 1; i++) {
-		vkDestroyImageView(p_app->device.logical, p_app->tex.image_views[i], NULL);
-		vmaDestroyImage(p_app->mem.alloc, p_app->tex.images[i], p_app->tex.image_allocations[i]);
+	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+		if (p_app->tex.image_views[i]) {
+			vkDestroyImageView(p_app->device.logical, p_app->tex.image_views[i], NULL);
+		}
+		if (p_app->tex.images[i]) {
+			vmaDestroyImage(p_app->mem.alloc, p_app->tex.images[i], p_app->tex.image_allocations[i]);
+		}
 	}
+	free(p_app->tex.image_views);
+	free(p_app->tex.images);
+	free(p_app->tex.image_allocations);
+	p_app->tex.image_views = NULL;
+	p_app->tex.images = NULL;
+	p_app->tex.image_allocations = NULL;
 
 	vkDestroyDescriptorPool(p_app->device.logical, p_app->descriptor.pool, NULL);
-	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipe.descriptor_set_layout, NULL);
+	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipeline.descriptor_set_layout, NULL);
 	free(p_app->descriptor.sets);
 	p_app->descriptor.sets = NULL;
 
@@ -2275,10 +2420,18 @@ void clean(_app *p_app) {
 	p_app->uniform.buffer_allocations = NULL;
 	p_app->uniform.buffers_mapped = NULL;
 
-	for (u32 i = 0; i < p_app->obj.mesh->object_count; i++) {
+	for (u32 i = 0; i < p_app->obj.object_count; i++) {
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.vertex_buffers[i], p_app->mesh.vertex_allocations[i]);
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.index_buffers[i], p_app->mesh.index_allocations[i]);
 	}
+	free(p_app->mesh.vertex_buffers);
+	free(p_app->mesh.index_buffers);
+	free(p_app->mesh.vertex_allocations);
+	free(p_app->mesh.index_allocations);
+	p_app->mesh.vertex_buffers = NULL;
+	p_app->mesh.index_buffers = NULL;
+	p_app->mesh.vertex_allocations = NULL;
+	p_app->mesh.index_allocations = NULL;
 
 	free(p_app->cmd.buffers);
 	p_app->cmd.buffers = NULL;
@@ -2287,43 +2440,36 @@ void clean(_app *p_app) {
 		vkDestroySemaphore(p_app->device.logical, p_app->sync.image_available_semaphores[i], NULL);
 		vkDestroySemaphore(p_app->device.logical, p_app->sync.render_finished_semaphores[i], NULL);
 	}
-
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		vkDestroyFence(p_app->device.logical, p_app->sync.in_flight_fences[i], NULL);
 	}
-
 	free(p_app->sync.image_available_semaphores);
-	p_app->sync.image_available_semaphores = NULL;
 	free(p_app->sync.render_finished_semaphores);
-	p_app->sync.render_finished_semaphores = NULL;
 	free(p_app->sync.in_flight_fences);
+	p_app->sync.image_available_semaphores = NULL;
+	p_app->sync.render_finished_semaphores = NULL;
 	p_app->sync.in_flight_fences = NULL;
 
-	fast_obj_destroy(p_app->obj.mesh);
-
 	vkDestroyCommandPool(p_app->device.logical, p_app->cmd.pool, NULL);
-
-	for (size_t i = 0; i < p_app->swp.images_count; i++) {
-		vkDestroyFramebuffer(p_app->device.logical, p_app->pipe.swapchain_framebuffers[i], NULL);
+	for (u32 i = 0; i < p_app->swp.images_count; i++) {
+		vkDestroyFramebuffer(p_app->device.logical, p_app->pipeline.swapchain_framebuffers[i], NULL);
 	}
-	free(p_app->pipe.swapchain_framebuffers);
-	p_app->pipe.swapchain_framebuffers = NULL;
+	free(p_app->pipeline.swapchain_framebuffers);
+	p_app->pipeline.swapchain_framebuffers = NULL;
 
-	vkDestroyPipeline(p_app->device.logical, p_app->pipe.pipeline, NULL);
-	vkDestroyPipelineLayout(p_app->device.logical, p_app->pipe.layout, NULL);
-
-	vkDestroyRenderPass(p_app->device.logical, p_app->pipe.render_pass, NULL);	
+	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.opaque, NULL);
+	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.transparent, NULL);
+	vkDestroyPipelineLayout(p_app->device.logical, p_app->pipeline.layout, NULL);
+	vkDestroyRenderPass(p_app->device.logical, p_app->pipeline.render_pass, NULL);
 
 	for (u32 i = 0; i < p_app->swp.images_count; i++) {
 		vkDestroyImageView(p_app->device.logical, p_app->swp.image_views[i], NULL);
 	}
 	free(p_app->swp.image_views);
 	p_app->swp.image_views = NULL;
-
 	vkDestroySwapchainKHR(p_app->device.logical, p_app->swp.swapchain, NULL);
 
 	vmaDestroyAllocator(p_app->mem.alloc);
-
 	vkDestroyDevice(p_app->device.logical, NULL);
 
 	if (enable_validation_layers) {
@@ -2409,30 +2555,30 @@ void submit_debug_message(VkInstance inst, VkDebugUtilsMessageSeverityFlagBitsEX
 	}
 }
 
-void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
+void flatten(_app_obj* p_obj) {
 
 	u32 idx_offset = 0;
 
-	for (u32 o = 0; o < mesh->object_count; ++o) {
-		fastObjGroup* obj = &mesh->objects[o];
+	for (u32 o = 0; o < p_obj->mesh->object_count; ++o) {
+		fastObjGroup* obj = &p_obj->mesh->objects[o];
 
 		u32 index_count = 0;
 		for (u32 f = obj->face_offset; f < obj->face_offset + obj->face_count; ++f) {
-			uint32_t fv = mesh->face_vertices[f];
+			uint32_t fv = p_obj->mesh->face_vertices[f];
 			if (fv >= 3)
 				index_count += (fv - 2) * 3;
 		}
 
-		p_app_obj->vertices[o] = malloc(index_count * sizeof(_vertex));
-		p_app_obj->indices[o] = malloc(index_count * sizeof(u32));
-		p_app_obj->face_indices[o] = malloc(index_count * sizeof(u32));
-		p_app_obj->material_indices[o] = malloc(index_count * sizeof(u32));
-		p_app_obj->group_indices[o] = malloc(index_count * sizeof(u32));
-		p_app_obj->object_indices[o] = malloc(index_count * sizeof(u32));
-		p_app_obj->texture_indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->vertices[o] = malloc(index_count * sizeof(_vertex));
+		p_obj->indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->face_indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->material_indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->group_indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->object_indices[o] = malloc(index_count * sizeof(u32));
+		p_obj->texture_indices[o] = malloc(index_count * sizeof(u32));
 
-		p_app_obj->vertices_count[o] = 0;
-		p_app_obj->indices_count[o] = 0;
+		p_obj->vertices_count[o] = 0;
+		p_obj->indices_count[o] = 0;
 
 		u32 table_size = 1024;
 		while (table_size < index_count) table_size <<= 1;
@@ -2442,43 +2588,43 @@ void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
 		u32 pool_index = 0;
 
 		for (u32 f = obj->face_offset; f < obj->face_offset + obj->face_count; ++f) {
-			uint32_t fv = mesh->face_vertices[f];
+			uint32_t fv = p_obj->mesh->face_vertices[f];
 			if (fv < 3) continue;
 
 			u32 mat = 0; 
-			if (mesh->face_materials) {
-				mat = mesh->face_materials[f];
+			if (p_obj->mesh->face_materials) {
+				mat = p_obj->mesh->face_materials[f];
 			}
 
 			for (u32 i = 1; i + 1 < fv; ++i) {
 				fastObjIndex tri[3] = {
-					mesh->indices[idx_offset + 0],
-					mesh->indices[idx_offset + i],
-					mesh->indices[idx_offset + i + 1]
+					p_obj->mesh->indices[idx_offset + 0],
+					p_obj->mesh->indices[idx_offset + i],
+					p_obj->mesh->indices[idx_offset + i + 1]
 				};
 
 				for (int t = 0; t < 3; ++t) {
 					fastObjIndex idx = tri[t];
 					_vertex v = {0};
 
-					if (idx.p >= 0 && idx.p < mesh->position_count) {
-						v.pos[0] = mesh->positions[3 * idx.p + 0];
-						v.pos[1] = mesh->positions[3 * idx.p + 1];
-						v.pos[2] = mesh->positions[3 * idx.p + 2];
+					if (idx.p >= 0 && idx.p < p_obj->mesh->position_count) {
+						v.pos[0] = p_obj->mesh->positions[3 * idx.p + 0];
+						v.pos[1] = p_obj->mesh->positions[3 * idx.p + 1];
+						v.pos[2] = p_obj->mesh->positions[3 * idx.p + 2];
 					}
 
-					if (idx.t >= 0 && idx.t < mesh->texcoord_count) {
-						v.tex[0] = mesh->texcoords[2 * idx.t + 0];
-						v.tex[1] = 1.0f - mesh->texcoords[2 * idx.t + 1];
+					if (idx.t >= 0 && idx.t < p_obj->mesh->texcoord_count) {
+						v.tex[0] = p_obj->mesh->texcoords[2 * idx.t + 0];
+						v.tex[1] = p_obj->mesh->texcoords[2 * idx.t + 1];
 					}
 
-					if (idx.n >= 0 && idx.n < mesh->normal_count) {
-						v.norm[0] = mesh->normals[3 * idx.n + 0];
-						v.norm[1] = mesh->normals[3 * idx.n + 1];
-						v.norm[2] = mesh->normals[3 * idx.n + 2];
+					if (idx.n >= 0 && idx.n < p_obj->mesh->normal_count) {
+						v.norm[0] = p_obj->mesh->normals[3 * idx.n + 0];
+						v.norm[1] = p_obj->mesh->normals[3 * idx.n + 1];
+						v.norm[2] = p_obj->mesh->normals[3 * idx.n + 2];
 					}
 
-					v.tex_index = mesh->materials[mat].map_Kd - 1;
+					v.tex_index = p_obj->mesh->materials[mat].map_Kd - 1;
 
 					u32 hash = 5381;
 					unsigned char* bytes = (unsigned char*)&v;
@@ -2501,36 +2647,36 @@ void flatten(fastObjMesh* mesh, _app_obj* p_app_obj) {
 					}
 
 					if (found) {
-						p_app_obj->indices[o][p_app_obj->indices_count[o]] = found_index;
+						p_obj->indices[o][p_obj->indices_count[o]] = found_index;
 					} else {
-						p_app_obj->vertices[o][p_app_obj->vertices_count[o]] = v;
-						p_app_obj->indices[o][p_app_obj->indices_count[o]] = p_app_obj->vertices_count[o];
+						p_obj->vertices[o][p_obj->vertices_count[o]] = v;
+						p_obj->indices[o][p_obj->indices_count[o]] = p_obj->vertices_count[o];
 
 						_node* new_n = &n_pool[pool_index++];
 						new_n->vertex = v;
-						new_n->index = p_app_obj->vertices_count[o];
+						new_n->index = p_obj->vertices_count[o];
 						new_n->next = table[hash];
 						table[hash] = new_n;
 
-						p_app_obj->vertices_count[o]++;
+						p_obj->vertices_count[o]++;
 					}
 
-					fastObjMaterial *material = &mesh->materials[mat];
+					fastObjMaterial *material = &p_obj->mesh->materials[mat];
 
 					u32 texture_index = material->map_Kd;
 
-					if (texture_index > 0 && texture_index <= mesh->texture_count) {
-						p_app_obj->texture_indices[o][p_app_obj->indices_count[o]] = texture_index;
+					if (texture_index > 0 && texture_index <= p_obj->mesh->texture_count) {
+						p_obj->texture_indices[o][p_obj->indices_count[o]] = texture_index;
 					} else {
-						p_app_obj->texture_indices[o][p_app_obj->indices_count[o]] = 0;
+						p_obj->texture_indices[o][p_obj->indices_count[o]] = 0;
 					}
 
-					p_app_obj->face_indices[o][p_app_obj->indices_count[o]] = f;
-					p_app_obj->material_indices[o][p_app_obj->indices_count[o]] = mat;
-					p_app_obj->group_indices[o][p_app_obj->indices_count[o]] = o;
-					p_app_obj->object_indices[o][p_app_obj->indices_count[o]] = o;
+					p_obj->face_indices[o][p_obj->indices_count[o]] = f;
+					p_obj->material_indices[o][p_obj->indices_count[o]] = mat;
+					p_obj->group_indices[o][p_obj->indices_count[o]] = o;
+					p_obj->object_indices[o][p_obj->indices_count[o]] = o;
 
-					p_app_obj->indices_count[o]++;
+					p_obj->indices_count[o]++;
 				}
 			}
 

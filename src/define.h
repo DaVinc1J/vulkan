@@ -32,7 +32,9 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 
-typedef struct {
+#define MAX_OBJECT_FILES 16
+
+typedef struct _vertex {
 	float pos[3];
 	float tex[2];
 	float norm[3];
@@ -55,6 +57,11 @@ typedef struct _ubo {
 	mat4 view;
 	mat4 proj;
 } _ubo;
+
+typedef struct _render_order {
+	u32 object_index;
+	float distance;
+} _render_order;
 
 typedef struct _queue_family_indices {
 	u32 graphics_family;
@@ -103,7 +110,8 @@ typedef struct _app_pipeline {
 	VkRenderPass render_pass;
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkPipelineLayout layout;
-	VkPipeline pipeline;
+	VkPipeline opaque;
+	VkPipeline transparent;
 	VkFramebuffer* swapchain_framebuffers;
 } _app_pipeline;
 
@@ -145,6 +153,7 @@ typedef struct _app_texture {
 	VkImage *images;
 	VmaAllocation *image_allocations;
 	VkImageView *image_views;
+	u32 *has_alpha;
 	VkSampler sampler;
 } _app_texture;
 
@@ -160,7 +169,8 @@ typedef struct _app_config {
 	u32 win_height;
 	char *vert_shader_path;
 	char *frag_shader_path;
-	char *object_path;
+	char *object_paths[MAX_OBJECT_FILES];
+	u32 object_files_count;
 } _app_config;
 
 typedef struct _app_obj {
@@ -173,15 +183,28 @@ typedef struct _app_obj {
 	u32** group_indices;
 	u32** object_indices;
 	u32** texture_indices;
+	fastObjTexture *textures;
+	u32 object_count;
+	u32 texture_count;
 	fastObjMesh *mesh;
 } _app_obj;
+
+typedef struct _app_view {
+	vec3 camera_pos;
+	vec3 target;
+	vec3 up;
+	float fov_y;
+	float near_plane;
+	float far_plane;
+	float rotation_speed;
+} _app_view;
 
 typedef struct _app {
 	_app_window win;
 	_app_instance inst;
 	_app_device device;
 	_app_swapchain swp;
-	_app_pipeline pipe;
+	_app_pipeline pipeline;
 	_app_commands cmd;
 	_app_sync sync;
 	_app_memory mem;
@@ -192,6 +215,7 @@ typedef struct _app {
 	_app_config config;
 	_app_mesh mesh;
 	_app_obj obj;
+	_app_view view;
 } _app;
 
 #endif
