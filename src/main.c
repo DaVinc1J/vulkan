@@ -83,7 +83,7 @@ VkExtent2D choose_swapchain_swap_extent(_app *p_app, _swapchain_support *p_suppo
 void create_swapchain(_app *p_app);
 
 // image views //
-void create_image_view(_app *p_app, VkImage image, VkImageView *p_image_view, VkFormat format, VkImageAspectFlags aspect_flags);
+void create_image_view(_app *p_app, VkImage image, VkImageView *p_image_view, u32 mip_levels, VkFormat format, VkImageAspectFlags aspect_flags);
 void create_image_views(_app *p_app);
 
 // render pass //
@@ -100,6 +100,9 @@ VkShaderModule create_shader_module(_app *p_app, const char* shader_code, size_t
 // command pool //
 void create_command_pool(_app *p_app);
 
+// colour resources //
+void create_colour_resources(_app *p_app);
+
 // depth resources //
 VkFormat find_supported_format(_app *p_app, VkPhysicalDevice physical_device, const VkFormat *candidates, size_t candidate_count, VkImageTiling tiling, VkFormatFeatureFlags features);
 VkFormat find_depth_format(_app *p_app, VkPhysicalDevice physical_device);
@@ -110,8 +113,9 @@ void create_depth_resources(_app *p_app);
 void create_framebuffers(_app *p_app);
 
 // texture //
-void create_image(_app *p_app, VkImage *p_image, VmaAllocation *p_allocation, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memory_usage);
-void transition_image_layout(_app *p_app, VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
+void create_mipmaps(_app *p_app, VkImage image, u32 mip_levels, i32 tex_width, i32 tex_height, VkFormat image_format);
+void create_image(_app *p_app, VkImage *p_image, u32 mip_levels, VkSampleCountFlagBits num_samples, VmaAllocation *p_allocation, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memory_usage);
+void transition_image_layout(_app *p_app, VkImage image, u32 mip_levels, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
 void copy_buffer_to_image(_app *p_app, VkBuffer buffer, VkImage image, u32 width, u32 height);
 void create_texture_image(_app *p_app);
 void create_texture_image_view(_app *p_app);
@@ -144,7 +148,8 @@ void draw_frame(_app *p_app);
 void cleanup_swapchain(_app *p_app);
 void recreate_swapchain(_app *p_app);
 void update_uniform_buffer(_app *p_app, u32 current_image);
-void update_view(_app *p_app);
+float get_delta_time();
+void update_view(_app *p_app, float time);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 //// MAIN LOOP ////
@@ -340,20 +345,14 @@ int main() {
 
 	glm_vec3_copy((vec3){2.0f, 2.0f, 2.0f}, app.view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, app.view.target);
-	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, app.view.up);
-	app.view.fov_y = 40.0f;
-	app.view.near_plane = 0.1f;
-	app.view.far_plane = 100.0f;
+	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, app.view.world_up);
+	app.view.fov_y = 80.0f;
+	app.view.near_plane = 0.01f;
+	app.view.far_plane = 1000.0f;
 	app.view.rotation_speed = 0.0f;
-	app.view.forward_speed = 0.4f;
-	app.view.back_speed = 0.4f;
-	app.view.up_speed = 0.4f;
-	app.view.down_speed = 0.4f;
-	app.view.left_speed = 0.15f;
-	app.view.right_speed = 0.15f;
-	app.view.strafe_amount = 0.25f;
-	app.view.lerp_speed = 0.2f;
-	app.view.sensitivity = 0.1f;
+	app.view.speed = 0.1f;
+	app.view.lerp_speed = 0.3f;
+	app.view.sensitivity = 0.2f;
 	app.view.yaw = -90.0f;
 	app.view.pitch = 0.0f;
 	app.view.first_mouse = true;
@@ -408,6 +407,7 @@ void vulkan_init(_app *p_app) {
 	create_descriptor_set_layout(p_app);
 	create_graphics_pipelines(p_app);
 	create_command_pool(p_app);
+	create_colour_resources(p_app);
 	create_depth_resources(p_app);
 	create_framebuffers(p_app);
 	create_texture_image(p_app);
@@ -739,6 +739,24 @@ bool is_physical_device_suitable(_app *p_app, VkPhysicalDevice physical_device) 
 
 //////// pick physical device ////////
 //////////////////////////////////////
+//// get sample count ////
+void get_max_usable_sample_count(VkPhysicalDevice physical_device, VkSampleCountFlagBits *p_msaa_samples) {
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties(physical_device, &properties);
+
+	VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts &
+		properties.limits.framebufferDepthSampleCounts;
+
+	if (counts & VK_SAMPLE_COUNT_64_BIT) *p_msaa_samples = VK_SAMPLE_COUNT_64_BIT;
+	else if (counts & VK_SAMPLE_COUNT_32_BIT) *p_msaa_samples = VK_SAMPLE_COUNT_32_BIT;
+	else if (counts & VK_SAMPLE_COUNT_16_BIT) *p_msaa_samples = VK_SAMPLE_COUNT_16_BIT;
+	else if (counts & VK_SAMPLE_COUNT_8_BIT)  *p_msaa_samples = VK_SAMPLE_COUNT_8_BIT;
+	else if (counts & VK_SAMPLE_COUNT_4_BIT)  *p_msaa_samples = VK_SAMPLE_COUNT_4_BIT;
+	else if (counts & VK_SAMPLE_COUNT_2_BIT)  *p_msaa_samples = VK_SAMPLE_COUNT_2_BIT;
+	else *p_msaa_samples = VK_SAMPLE_COUNT_1_BIT;
+}
+
+//// pick device ////
 void pick_physical_device(_app *p_app) {
 	p_app->device.physical = VK_NULL_HANDLE;
 
@@ -768,6 +786,7 @@ void pick_physical_device(_app *p_app) {
 		}
 
 		p_app->device.physical = physical_devices[0];
+		get_max_usable_sample_count(p_app->device.physical, &p_app->device.msaa_samples);
 		submit_debug_message(
 			p_app->inst.instance,
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
@@ -795,6 +814,7 @@ void pick_physical_device(_app *p_app) {
 
 	if (max_index != -1) {
 		p_app->device.physical = *candidates[max_index].p_physical_device;
+		get_max_usable_sample_count(p_app->device.physical, &p_app->device.msaa_samples);
 	}
 
 	if (p_app->device.physical == VK_NULL_HANDLE) {
@@ -1026,7 +1046,7 @@ void create_swapchain(_app *p_app) {
 //////// create image views ////////
 ////////////////////////////////////
 
-void create_image_view(_app *p_app, VkImage image, VkImageView *p_image_view, VkFormat format, VkImageAspectFlags aspect_flags) {
+void create_image_view(_app *p_app, VkImage image, VkImageView *p_image_view, u32 mip_levels, VkFormat format, VkImageAspectFlags aspect_flags) {
 	VkImageViewCreateInfo view_create_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.image = image,
@@ -1035,7 +1055,7 @@ void create_image_view(_app *p_app, VkImage image, VkImageView *p_image_view, Vk
 		.subresourceRange = {
 			.aspectMask = aspect_flags,
 			.baseMipLevel = 0,
-			.levelCount = 1,
+			.levelCount = mip_levels,
 			.baseArrayLayer = 0,
 			.layerCount = 1,
 		},
@@ -1059,6 +1079,7 @@ void create_image_views(_app *p_app) {
 			p_app,
 			p_app->swp.images[i],
 			&p_app->swp.image_views[i],
+			1,
 			p_app->swp.surface_format.format,
 			VK_IMAGE_ASPECT_COLOR_BIT
 		);
@@ -1070,13 +1091,13 @@ void create_image_views(_app *p_app) {
 void create_render_pass(_app *p_app) {
 	VkAttachmentDescription colour_attachment_description = {
 		.format = p_app->swp.surface_format.format,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.samples = p_app->device.msaa_samples,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	};
 
 	VkAttachmentReference colour_attachment_reference = {
@@ -1084,9 +1105,25 @@ void create_render_pass(_app *p_app) {
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	};
 
+	VkAttachmentDescription colour_attachment_resolve = {
+    .format = p_app->swp.surface_format.format,
+    .samples = VK_SAMPLE_COUNT_1_BIT,
+    .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+    .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+	};
+
+	VkAttachmentReference colour_attachment_resolve_reference = {
+    .attachment = 2,
+    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
+
 	VkAttachmentDescription depth_attachment_description = {
 		.format = find_depth_format(p_app, p_app->device.physical),
-		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.samples = p_app->device.msaa_samples,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
@@ -1104,6 +1141,7 @@ void create_render_pass(_app *p_app) {
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 		.colorAttachmentCount = 1,
 		.pColorAttachments = &colour_attachment_reference,
+		.pResolveAttachments = &colour_attachment_resolve_reference,
 		.pDepthStencilAttachment = &depth_attachment_reference,
 	};
 
@@ -1117,7 +1155,8 @@ void create_render_pass(_app *p_app) {
 		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
 	};
 
-	VkAttachmentDescription attachments[] = {colour_attachment_description, depth_attachment_description};
+	VkAttachmentDescription attachments[] = {colour_attachment_description, depth_attachment_description, colour_attachment_resolve};
+
 	VkRenderPassCreateInfo render_pass_create_info = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = sizeof(attachments) / sizeof(attachments[0]),
@@ -1146,7 +1185,7 @@ void create_descriptor_set_layout(_app *p_app) {
 		.binding = 0,
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.pImmutableSamplers = NULL,
 	};
 
@@ -1282,7 +1321,7 @@ void create_graphics_pipelines(_app *p_app) {
 
 	VkPipelineMultisampleStateCreateInfo multisample = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.rasterizationSamples = p_app->device.msaa_samples,
 	};
 
 	VkPipelineDepthStencilStateCreateInfo depth = {
@@ -1445,12 +1484,23 @@ bool has_stencil_component(VkFormat format) {
 	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
+//////// colour resources ////////
+//////////////////////////////////
+void create_colour_resources(_app *p_app) {
+	VkFormat colour_format = p_app->swp.surface_format.format;
+
+  create_image(p_app, &p_app->colour.image, 1, p_app->device.msaa_samples, &p_app->colour.image_allocation, p_app->swp.extent.width, p_app->swp.extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+	create_image_view(p_app, p_app->colour.image, &p_app->colour.image_view, 1, colour_format, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+//////// depth resources ////////
+/////////////////////////////////
 void create_depth_resources(_app *p_app) {
 	VkFormat depth_format = find_depth_format(p_app, p_app->device.physical);
 
-	create_image(p_app, &p_app->depth.image, &p_app->depth.image_allocation, p_app->swp.extent.width, p_app->swp.extent.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-	create_image_view(p_app, p_app->depth.image, &p_app->depth.image_view, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
-	transition_image_layout(p_app, p_app->depth.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	create_image(p_app, &p_app->depth.image, 1, p_app->device.msaa_samples, &p_app->depth.image_allocation, p_app->swp.extent.width, p_app->swp.extent.height, depth_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+	create_image_view(p_app, p_app->depth.image, &p_app->depth.image_view, 1, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+	transition_image_layout(p_app, p_app->depth.image, 1, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 //////// create framebuffers ////////
@@ -1468,13 +1518,14 @@ void create_framebuffers(_app *p_app) {
 
 
 	VkImageView attachments[] = {
-		NULL,
+		p_app->colour.image_view,
 		p_app->depth.image_view,
+		NULL,
 	};
 
 	for (size_t i = 0; i < p_app->swp.images_count; i++) {
 
-		attachments[0] = p_app->swp.image_views[i];
+		attachments[2] = p_app->swp.image_views[i];
 
 		framebuffer_create_info.attachmentCount = sizeof(attachments) / sizeof(attachments[0]);
 		framebuffer_create_info.pAttachments = attachments;
@@ -1493,12 +1544,92 @@ void create_framebuffers(_app *p_app) {
 
 //////// texture ////////
 /////////////////////////
+//// create mipmaps ////
+void create_mipmaps(_app *p_app, VkImage image, u32 mip_levels, i32 tex_width, i32 tex_height, VkFormat image_format) {
+
+	VkFormatProperties format_properties;
+	vkGetPhysicalDeviceFormatProperties(p_app->device.physical, image_format, &format_properties);
+
+	if (!(format_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+		submit_debug_message(
+			p_app->inst.instance,
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			"mipmaps => texture image format does not support linear blitting"
+		);
+		exit(EXIT_FAILURE);
+	}
+
+	VkCommandBuffer command_buffer = begin_single_time_commands(p_app);
+
+	VkImageMemoryBarrier barrier = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.image = image,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+		.subresourceRange.baseArrayLayer = 0,
+		.subresourceRange.layerCount = 1,
+		.subresourceRange.levelCount = 1,
+	};
+
+	i32 mip_width = tex_width;
+	i32 mip_height = tex_height;
+
+	for (int i = 1; i < mip_levels; i++) {
+		barrier.subresourceRange.baseMipLevel = i - 1;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+
+		VkImageBlit blit = {
+			.srcOffsets[0] = { 0, 0, 0 },
+			.srcOffsets[1] = { mip_width, mip_height, 1 },
+			.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.srcSubresource.mipLevel = i - 1,
+			.srcSubresource.baseArrayLayer = 0,
+			.srcSubresource.layerCount = 1,
+			.dstOffsets[0] = { 0, 0, 0 },
+			.dstOffsets[1] = { mip_width > 1 ? mip_width / 2 : 1, mip_height > 1 ? mip_height / 2 : 1, 1 },
+			.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.dstSubresource.mipLevel = i,
+			.dstSubresource.baseArrayLayer = 0,
+			.dstSubresource.layerCount = 1,
+		};
+
+		vkCmdBlitImage(command_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
+
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+
+		if (mip_width > 1) mip_width /= 2;
+		if (mip_height > 1) mip_height /= 2;
+	}
+
+	barrier.subresourceRange.baseMipLevel = mip_levels - 1;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+
+	end_single_time_commands(p_app, command_buffer);
+}
+
 //// create texture ////
 void create_texture_image(_app *p_app) {
 	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.texture_count);
 	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.texture_count);
 	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->obj.texture_count);
 	p_app->tex.has_alpha = calloc(p_app->obj.texture_count, sizeof(u32));
+	p_app->tex.mip_levels = malloc(sizeof(u32) * p_app->obj.texture_count);
 
 	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
 		const char *path = p_app->obj.textures[i].path;
@@ -1520,6 +1651,7 @@ void create_texture_image(_app *p_app) {
 			);
 			exit(EXIT_FAILURE);
 		}
+		p_app->tex.mip_levels[i] = (u32)floor(log2(tex_w > tex_h ? tex_w : tex_h)) + 1;
 
 		u32 pixel_count = (u32)(tex_w * tex_h);
 		for (u32 j = 0; j < pixel_count; j++) {
@@ -1548,16 +1680,14 @@ void create_texture_image(_app *p_app) {
 		vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
 		stbi_image_free(pixels);
 
-		create_image(p_app, &p_app->tex.images[i], &p_app->tex.image_allocations[i],
-							 tex_w, tex_h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-							 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-							 VMA_MEMORY_USAGE_GPU_ONLY);
+		create_image(p_app, &p_app->tex.images[i], p_app->tex.mip_levels[i], VK_SAMPLE_COUNT_1_BIT, &p_app->tex.image_allocations[i], tex_w, tex_h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB,
-													VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		transition_image_layout(p_app, p_app->tex.images[i], p_app->tex.mip_levels[i], VK_FORMAT_R8G8B8A8_SRGB,	VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		copy_buffer_to_image(p_app, staging_buffer, p_app->tex.images[i], tex_w, tex_h);
-		transition_image_layout(p_app, p_app->tex.images[i], VK_FORMAT_R8G8B8A8_SRGB,
-													VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		create_mipmaps(p_app, p_app->tex.images[i], p_app->tex.mip_levels[i], tex_w, tex_h, VK_FORMAT_R8G8B8A8_SRGB);
+
+		//transition_image_layout(p_app, p_app->tex.images[i], p_app->tex.mip_levels[i], VK_FORMAT_R8G8B8A8_SRGB,	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
 	}
@@ -1567,7 +1697,7 @@ void create_texture_image(_app *p_app) {
 void create_texture_image_view(_app *p_app) {
 	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
 		if (p_app->tex.images[i] != VK_NULL_HANDLE) {
-			create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+			create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], p_app->tex.mip_levels[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
 	}
 }
@@ -1576,6 +1706,13 @@ void create_texture_image_view(_app *p_app) {
 void create_texture_sampler(_app *p_app) {
 	VkPhysicalDeviceProperties properties;
 	vkGetPhysicalDeviceProperties(p_app->device.physical, &properties);
+
+	int max = 0;
+	for (int i = 0; i < p_app->obj.texture_count; i++) {
+		if (p_app->tex.mip_levels[i] > max) {
+			max = p_app->tex.mip_levels[i];
+		}
+	}
 
 	VkSamplerCreateInfo sampler_create_info = {
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -1593,7 +1730,7 @@ void create_texture_sampler(_app *p_app) {
 		.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
 		.mipLodBias = 0.0f,
 		.minLod = 0.0f,
-		.maxLod = 0.0f,
+		.maxLod = (float)max,
 	};
 
 	if (vkCreateSampler(p_app->device.logical, &sampler_create_info, NULL, &p_app->tex.sampler) != VK_SUCCESS) {
@@ -1608,20 +1745,20 @@ void create_texture_sampler(_app *p_app) {
 }
 
 //// create image ////
-void create_image(_app *p_app, VkImage *p_image, VmaAllocation *p_allocation, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memory_usage) {
+void create_image(_app *p_app, VkImage *p_image, u32 mip_levels, VkSampleCountFlagBits num_samples, VmaAllocation *p_allocation, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage memory_usage) {
 	VkImageCreateInfo image_create_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = VK_IMAGE_TYPE_2D,
 		.extent.width = width,
 		.extent.height = height,
 		.extent.depth = 1,
-		.mipLevels = 1,
+		.mipLevels = mip_levels,
 		.arrayLayers = 1,
 		.format = format,
 		.tiling = tiling,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 		.usage = usage,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.samples = num_samples,
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 	};
 
@@ -1640,7 +1777,7 @@ void create_image(_app *p_app, VkImage *p_image, VmaAllocation *p_allocation, ui
 }
 
 //// transition image layout ////
-void transition_image_layout(_app *p_app, VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout) {
+void transition_image_layout(_app *p_app, VkImage image, u32 mip_levels, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout) {
 	VkCommandBuffer command_buffer = begin_single_time_commands(p_app);
 
 	VkImageMemoryBarrier barrier = {
@@ -1653,7 +1790,7 @@ void transition_image_layout(_app *p_app, VkImage image, VkFormat format, VkImag
 		.subresourceRange = {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.baseMipLevel = 0,
-			.levelCount = 1,
+			.levelCount = mip_levels,
 			.baseArrayLayer = 0,
 			.layerCount = 1,
 		},
@@ -2209,7 +2346,7 @@ void main_loop(_app *p_app) {
 
 	while (!glfwWindowShouldClose(p_app->win.window)) {
 		glfwPollEvents();
-		update_view(p_app);
+		update_view(p_app, get_delta_time());
 		draw_frame(p_app);
 	}
 
@@ -2337,6 +2474,7 @@ void recreate_swapchain(_app *p_app) {
 
 	create_swapchain(p_app);
 	create_image_views(p_app);
+	create_colour_resources(p_app);
 	create_depth_resources(p_app);
 	create_framebuffers(p_app);
 }
@@ -2357,33 +2495,41 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 
 	_ubo ubo;
 	glm_mat4_identity(ubo.model);
-	glm_rotate(ubo.model, glm_rad(-90.0f), (vec3){1.0f, 0.0f, 0.0f});
-	glm_scale(ubo.model, (vec3){10.0f, 10.0f, 10.0f});
 
 	float angle = glm_rad(p_app->view.rotation_speed) * time;
 	glm_rotate(ubo.model, angle, (vec3){0.0f, 1.0f, 0.0f});
 
-	glm_lookat(p_app->view.camera_pos, p_app->view.target, p_app->view.up, ubo.view);
+	glm_lookat(p_app->view.camera_pos, p_app->view.target, p_app->view.world_up, ubo.view);
 
 	float aspect = p_app->swp.extent.width / (float)p_app->swp.extent.height;
 	glm_perspective(glm_rad(p_app->view.fov_y), aspect,
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
+	glm_vec3_copy(p_app->view.camera_pos, ubo.light_pos);
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
 }
 
-void update_view(_app *p_app) {
+float get_delta_time() {
+	static struct timespec last_time = {0};
+	struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
 
+	float delta = (now.tv_sec - last_time.tv_sec) + 
+		(now.tv_nsec - last_time.tv_nsec) / 1e9f;
+
+	last_time = now;
+	return delta;
+}
+
+void update_view(_app *p_app, float time) {
 	if (glfwGetKey(p_app->win.window, GLFW_KEY_ESCAPE) == GLFW_PRESS && p_app->view.mouse_locked) {
 		glfwSetInputMode(p_app->win.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		p_app->view.mouse_locked = false;
 		p_app->view.first_mouse = true;
 	}
 
-	if (!p_app->view.mouse_locked) {
-		return;
-	}
+	if (!p_app->view.mouse_locked) return;
 
 	vec3 front;
 	front[0] = cos(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
@@ -2391,7 +2537,9 @@ void update_view(_app *p_app) {
 	front[2] = sin(glm_rad(p_app->view.yaw)) * cos(glm_rad(p_app->view.pitch));
 	glm_vec3_normalize_to(front, front);
 
-	vec3 world_up = {0.0f, 1.0f, 0.0f};
+	vec3 world_up;
+	glm_vec3_copy(p_app->view.world_up, world_up);
+
 	vec3 right;
 	glm_vec3_cross(front, world_up, right);
 	glm_vec3_normalize(right);
@@ -2399,52 +2547,39 @@ void update_view(_app *p_app) {
 	vec3 up;
 	glm_vec3_cross(right, front, up);
 	glm_vec3_normalize(up);
-	glm_vec3_copy(up, p_app->view.up);
 
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
-		p_app->view.cam_offset_goal[0] = -p_app->view.strafe_amount;
-	} else if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
-		p_app->view.cam_offset_goal[0] = p_app->view.strafe_amount;
-	} else {
-		p_app->view.cam_offset_goal[0] = 0.0f;
-	}
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_W) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[1] = p_app->view.speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_S) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[1] = -p_app->view.speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[0] = -p_app->view.speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[0] = p_app->view.speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[2] = -p_app->view.speed;
+	if (glfwGetKey(p_app->win.window, GLFW_KEY_SPACE) == GLFW_PRESS)
+		p_app->view.cam_offset_goal[2] = p_app->view.speed;
 
 	for (int i = 0; i < 3; ++i) {
-		p_app->view.cam_offset[i] += (p_app->view.cam_offset_goal[i] - p_app->view.cam_offset[i]) * p_app->view.lerp_speed;
+		float diff = p_app->view.cam_offset_goal[i] - p_app->view.cam_offset[i];
+		p_app->view.cam_offset[i] += diff * p_app->view.lerp_speed * time * 60.0f;
 	}
 
-	vec3 offset_world = {0.0f, 0.0f, 0.0f};
-	glm_vec3_scale(right, p_app->view.cam_offset[0], offset_world);
-
-	vec3 move_pos;
-	glm_vec3_copy(p_app->view.camera_pos, move_pos);
-	vec3 tmp;
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_W) == GLFW_PRESS) {
-		glm_vec3_scale(front, p_app->view.forward_speed, tmp);
-		glm_vec3_add(move_pos, tmp, move_pos);
-	}
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_S) == GLFW_PRESS) {
-		glm_vec3_scale(front, -p_app->view.back_speed, tmp);
-		glm_vec3_add(move_pos, tmp, move_pos);
-	}
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_A) == GLFW_PRESS) {
-		glm_vec3_scale(right, -p_app->view.left_speed, tmp);
-		glm_vec3_add(move_pos, tmp, move_pos);
-	}
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_D) == GLFW_PRESS) {
-		glm_vec3_scale(right, p_app->view.right_speed, tmp);
-		glm_vec3_add(move_pos, tmp, move_pos);
-	}
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-		move_pos[1] -= p_app->view.down_speed;
-	if (glfwGetKey(p_app->win.window, GLFW_KEY_SPACE) == GLFW_PRESS)
-		move_pos[1] += p_app->view.up_speed;
+	vec3 offset_world = {0.0f}, tmp;
+	glm_vec3_scale(right, p_app->view.cam_offset[0], tmp);
+	glm_vec3_add(offset_world, tmp, offset_world);
+	glm_vec3_scale(front, p_app->view.cam_offset[1], tmp);
+	glm_vec3_add(offset_world, tmp, offset_world);
+	glm_vec3_scale(world_up, p_app->view.cam_offset[2], tmp);
+	glm_vec3_add(offset_world, tmp, offset_world);
 
 	vec3 cam_actual_pos;
-	glm_vec3_add(move_pos, offset_world, cam_actual_pos);
-
+	glm_vec3_add(p_app->view.camera_pos, offset_world, cam_actual_pos);
 	glm_vec3_copy(cam_actual_pos, p_app->view.camera_pos);
 	glm_vec3_add(p_app->view.camera_pos, front, p_app->view.target);
+
+	glm_vec3_zero(p_app->view.cam_offset_goal);
 }
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
@@ -2454,6 +2589,7 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
 		p_app->view.last_mouse_x = xpos;
 		p_app->view.last_mouse_y = ypos;
 		p_app->view.first_mouse = false;
+		return;
 	}
 
 	float dx = xpos - p_app->view.last_mouse_x;
@@ -2477,6 +2613,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && !p_app->view.mouse_locked) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+		glfwGetCursorPos(window, &p_app->view.last_mouse_x, &p_app->view.last_mouse_y);
+
 		p_app->view.first_mouse = true;
 		p_app->view.mouse_locked = true;
 	}
@@ -2524,6 +2663,8 @@ void clean(_app *p_app) {
 
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
+	vkDestroyImageView(p_app->device.logical, p_app->colour.image_view, NULL);
+	vmaDestroyImage(p_app->mem.alloc, p_app->colour.image, p_app->colour.image_allocation);
 
 	vkDestroySampler(p_app->device.logical, p_app->tex.sampler, NULL);
 	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
@@ -2537,9 +2678,13 @@ void clean(_app *p_app) {
 	free(p_app->tex.image_views);
 	free(p_app->tex.images);
 	free(p_app->tex.image_allocations);
+	free(p_app->tex.has_alpha);
+	free(p_app->tex.mip_levels);
 	p_app->tex.image_views = NULL;
 	p_app->tex.images = NULL;
 	p_app->tex.image_allocations = NULL;
+	p_app->tex.has_alpha = NULL;
+	p_app->tex.mip_levels = NULL;
 
 	vkDestroyDescriptorPool(p_app->device.logical, p_app->descriptor.pool, NULL);
 	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipeline.descriptor_set_layout, NULL);

@@ -33,6 +33,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 
 #define MAX_OBJECT_FILES 16
+#define MAX_LIGHTS 8
 
 typedef struct _vertex {
 	float pos[3];
@@ -56,6 +57,8 @@ typedef struct _ubo {
 	mat4 model;
 	mat4 view;
 	mat4 proj;
+	vec3 light_pos;
+	float _padding;
 } _ubo;
 
 typedef struct _render_order {
@@ -93,6 +96,7 @@ typedef struct _app_device {
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	_queue_family_indices queue_indices;
+	VkSampleCountFlagBits msaa_samples;
 } _app_device;
 
 typedef struct _app_swapchain {
@@ -150,6 +154,7 @@ typedef struct _app_descriptors {
 } _app_descriptors;
 
 typedef struct _app_texture {
+	u32 *mip_levels;
 	VkImage *images;
 	VmaAllocation *image_allocations;
 	VkImageView *image_views;
@@ -162,6 +167,12 @@ typedef struct _app_depth_resources {
 	VmaAllocation image_allocation;
 	VkImageView image_view;
 } _app_depth;
+
+typedef struct _app_colour {
+	VkImage image;
+	VmaAllocation image_allocation;
+	VkImageView image_view;
+} _app_colour;
 
 typedef struct _app_config {
 	char *win_title;
@@ -193,18 +204,13 @@ typedef struct _app_view {
 	vec3 camera_pos;
 	vec3 target;
 	vec3 up;
+	vec3 world_up;
 	float fov_y;
 	float near_plane;
 	float far_plane;
 	float rotation_speed;
-	float forward_speed;
-	float back_speed;
-	float up_speed;
-	float down_speed;
-	float left_speed;
-	float right_speed;
 	float sensitivity;
-	float strafe_amount;
+	float speed;
 	float lerp_speed;
 	vec3 cam_offset;
 	vec3 cam_offset_goal;
@@ -231,6 +237,7 @@ typedef struct _app {
 	_app_mesh mesh;
 	_app_obj obj;
 	_app_view view;
+	_app_colour colour;
 } _app;
 
 #endif
