@@ -157,6 +157,7 @@ typedef struct _app_mesh {
 typedef struct _app_billboard {
 	VkBuffer instance_buffer;
 	VmaAllocation instance_allocation;
+	void* buffers_mapped;
 } _app_billboard;
 
 typedef struct _app_uniforms {

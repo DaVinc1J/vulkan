@@ -38,7 +38,7 @@ void main() {
     }
 
     vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], frag_uv);
-    vec3 colour = (diffuse_light + (ubo.ambient_light.xyz * ubo.ambient_light.w)) * tex_colour.rgb;
+    vec3 colour = diffuse_light * tex_colour.rgb;
 
     out_color = vec4(colour, tex_colour.a);
 }

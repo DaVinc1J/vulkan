@@ -125,7 +125,7 @@ void create_texture_sampler(_app *p_app);
 // buffers //
 void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer *p_buffer, VmaAllocation *p_allocation);
 void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
-void create_point_light_buffer(_app *p_app);
+void create_billboard_buffer(_app *p_app);
 void create_mesh_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
 
@@ -395,13 +395,15 @@ int main() {
 	app.view.mouse_locked = true;
 
 	_point_light lights[] = {
-		{ .pos = {2.0f, 1.0f, 0.0f, 0.025f}, .tint = {1.0f, 1.0f, 0.0f, 1.0f}, .colour = {1.0f, 0.0f, 0.0f, 2.0f}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {1.0f, 1.0f, 0.0f, 1.0f}, .colour = {1.0f, 1.0f, 0.0f, 0.5f}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {1.0f, 0.0f, 1.0f, 1.0f}, .colour = {1.0f, 0.0f, 1.0f, 0.5f}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {0.0f, 1.0f, 1.0f, 1.0f}, .colour = {0.0f, 1.0f, 1.0f, 0.5f}},
 	};
 
 	app.obj.light_count = sizeof(lights) / sizeof(lights[0]);
 	app.obj.lights = lights;
 
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.05f}, app.lighting.ambient);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, app.lighting.ambient);
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -458,7 +460,7 @@ void vulkan_init(_app *p_app) {
 	create_texture_image(p_app);
 	create_texture_image_view(p_app);
 	create_texture_sampler(p_app);
-	create_point_light_buffer(p_app);
+	create_billboard_buffer(p_app);
 	create_mesh_buffer(p_app);
 	create_uniform_buffers(p_app);
 	create_descriptor_pool(p_app);
@@ -1349,11 +1351,11 @@ void create_graphics_pipelines(_app *p_app) {
 	};
 
 	VkPipelineVertexInputStateCreateInfo billboard_vertex_input = {
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    .vertexBindingDescriptionCount = 0,
-    .vertexAttributeDescriptionCount = 0,
-    .pVertexBindingDescriptions = NULL,
-    .pVertexAttributeDescriptions = NULL,
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 1,
+		.vertexAttributeDescriptionCount = billboard_attr_count,
+		.pVertexBindingDescriptions = &billboard_binding_desc,
+		.pVertexAttributeDescriptions = billboard_attr_descs,
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_asm = {
@@ -2016,7 +2018,7 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 }
 
 //// create billboard buffer ////
-void create_point_light_buffer(_app *p_app) {
+void create_billboard_buffer(_app *p_app) {
 	u32 count = p_app->obj.light_count;
 
 	VkDeviceSize buffer_size = sizeof(_point_light) * count;
@@ -2399,13 +2401,52 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 	free(transparent_draw_order);
 
-	if (p_app->obj.light_count > 0) {
+
+	u32 light_count = p_app->obj.light_count;
+	if (light_count > 0) {
+
+		_render_order* light_order = malloc(sizeof(_render_order) * light_count);
+		for (u32 i = 0; i < light_count; ++i) {
+			vec3 diff;
+			glm_vec3_sub(p_app->view.camera_pos, p_app->obj.lights[i].pos, diff);
+			float dist_sq = glm_vec3_dot(diff, diff);
+			light_order[i] = (_render_order){ i, dist_sq };
+		}
+		qsort(light_order, light_count, sizeof(_render_order), compare_render_order);
+
+		_point_light* sorted_instances = malloc(sizeof(_point_light) * light_count);
+		for (u32 i = 0; i < light_count; ++i) {
+			u32 idx = light_order[i].object_index;
+			_point_light* src = &p_app->obj.lights[idx];
+
+			glm_vec4_copy(src->pos,    sorted_instances[i].pos);
+			glm_vec4_copy(src->tint,   sorted_instances[i].tint);
+			glm_vec4_copy(src->colour, sorted_instances[i].colour);
+		}
+
+		VkDeviceSize buffer_size = sizeof(_point_light) * light_count;
+
+		VkBuffer staging_buffer;
+		VmaAllocation staging_alloc;
+		create_buffer(p_app, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_buffer, &staging_alloc);
+
+		void* data;
+		vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
+		memcpy(data, sorted_instances, buffer_size);
+		vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
+
+		copy_buffer(p_app, staging_buffer, p_app->billboard.instance_buffer, buffer_size);
+		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
+
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.billboard);
 
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->billboard.instance_buffer, &offset);
 
-		vkCmdDraw(command_buffer, 6, p_app->obj.light_count, 0, 0);
+		vkCmdDraw(command_buffer, 6, light_count, 0, 0);
+
+		free(light_order);
+		free(sorted_instances);
 	}
 
 	vkCmdEndRenderPass(command_buffer);
@@ -2664,9 +2705,25 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
-	glm_vec4(p_app->obj.lights[0].pos, 1.0f, ubo.lights[0].pos);
-	glm_vec4_copy(p_app->obj.lights[0].colour, ubo.lights[0].colour);
-	glm_vec4_copy(p_app->obj.lights[0].tint, ubo.lights[0].tint);
+	float radius = 1.0f;
+	float speed = 5.0f;
+
+	int light_count = p_app->obj.light_count;
+	for (int i = 0; i < light_count; ++i) {
+		float angle = speed * time + ((float)i / (float)light_count) * 2.0f * M_PI;
+
+		float x = cosf(angle) * radius + 0.33;
+		float y = 1.0f + sinf(angle * 1.5f) * 0.125f;
+		float z = sinf(angle) * radius;
+		float w = p_app->obj.lights[i].pos[3];
+
+		vec4 rotated_pos = { x, y, z, w };
+		glm_vec4_copy(rotated_pos, ubo.lights[i].pos);
+		glm_vec4_copy(rotated_pos, p_app->obj.lights[i].pos);
+		glm_vec4_copy(p_app->obj.lights[i].colour, ubo.lights[i].colour);
+		glm_vec4_copy(p_app->obj.lights[i].tint, ubo.lights[i].tint);
+	}
+
 	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient_light);
 	ubo.light_count = p_app->obj.light_count;
 
