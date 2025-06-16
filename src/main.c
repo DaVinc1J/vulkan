@@ -22,7 +22,7 @@ const u32 enabled_logical_device_extensions_count = sizeof(enabled_logical_devic
 
 const u32 MAX_FRAMES_IN_FLIGHT = 2;
 const u32 number_of_mesh_attributes = 4;
-const u32 number_of_billboard_attributes = 3;
+const u32 number_of_point_light_attributes = 3;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void* p_user_data);
 VkResult create_debug_utils_messenger_EXT(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info, const VkAllocationCallbacks *p_alloc, VkDebugUtilsMessengerEXT *p_debug_messenger);
@@ -125,7 +125,7 @@ void create_texture_sampler(_app *p_app);
 // buffers //
 void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer *p_buffer, VmaAllocation *p_allocation);
 void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
-void create_billboard_buffer(_app *p_app);
+void create_point_light_buffer(_app *p_app);
 void create_mesh_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
 
@@ -170,10 +170,10 @@ VkVertexInputBindingDescription get_mesh_binding_description() {
 	return binding_description;
 }
 
-VkVertexInputBindingDescription get_billboard_binding_description() {
+VkVertexInputBindingDescription get_point_light_binding_description() {
 	VkVertexInputBindingDescription binding_description = {};
 	binding_description.binding = 0;
-	binding_description.stride = sizeof(_billboard);
+	binding_description.stride = sizeof(_point_light);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 	return binding_description;
 }
@@ -205,26 +205,26 @@ void get_mesh_attribute_descriptions(VkVertexInputAttributeDescription* attribs,
 	attribs[3].offset = offsetof(_vertex, tex_index);
 }
 
-void get_billboard_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 *num_attribs) {
+void get_point_light_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 *num_attribs) {
 	if (attribs == NULL) {
-		*num_attribs = number_of_billboard_attributes;
+		*num_attribs = number_of_point_light_attributes;
 		return;
 	}
 
 	attribs[0].binding = 0;
 	attribs[0].location = 0;
-	attribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attribs[0].offset = offsetof(_billboard, position);
+	attribs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attribs[0].offset = offsetof(_point_light, pos);
 
 	attribs[1].binding = 0;
 	attribs[1].location = 1;
-	attribs[1].format = VK_FORMAT_R32_SFLOAT;
-	attribs[1].offset = offsetof(_billboard, size);
+	attribs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attribs[1].offset = offsetof(_point_light, tint);
 
 	attribs[2].binding = 0;
 	attribs[2].location = 2;
 	attribs[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attribs[2].offset = offsetof(_billboard, color);
+	attribs[2].offset = offsetof(_point_light, colour);
 }
 
 //// VERTEX READ ////
@@ -379,7 +379,7 @@ int main() {
 		app.config.object_paths[i] = object_paths[i];
 	}
 
-	glm_vec3_copy((vec3){2.0f, 2.0f, 2.0f}, app.view.camera_pos);
+	glm_vec3_copy((vec3){0.0f, 2.0f, 0.0f}, app.view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, app.view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, app.view.world_up);
 	app.view.fov_y = 80.0f;
@@ -394,12 +394,14 @@ int main() {
 	app.view.first_mouse = true;
 	app.view.mouse_locked = true;
 
-	_billboard billboards[] = {
-	{ .position = {1, 2, 1}, .size = 3.0f, .color = {1, 1, 0, 1} },
-};
-	
-	app.obj.billboard_count = sizeof(billboards) / sizeof(billboards[0]);
-	app.obj.billboards = billboards;
+	_point_light lights[] = {
+		{ .pos = {2.0f, 1.0f, 0.0f, 0.025f}, .tint = {1.0f, 1.0f, 0.0f, 1.0f}, .colour = {1.0f, 0.0f, 0.0f, 2.0f}},
+	};
+
+	app.obj.light_count = sizeof(lights) / sizeof(lights[0]);
+	app.obj.lights = lights;
+
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.05f}, app.lighting.ambient);
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -456,7 +458,7 @@ void vulkan_init(_app *p_app) {
 	create_texture_image(p_app);
 	create_texture_image_view(p_app);
 	create_texture_sampler(p_app);
-	create_billboard_buffer(p_app);
+	create_point_light_buffer(p_app);
 	create_mesh_buffer(p_app);
 	create_uniform_buffers(p_app);
 	create_descriptor_pool(p_app);
@@ -1332,11 +1334,11 @@ void create_graphics_pipelines(_app *p_app) {
 	VkVertexInputAttributeDescription mesh_attr_descs[mesh_attr_count];
 	get_mesh_attribute_descriptions(mesh_attr_descs, NULL);
 
-	VkVertexInputBindingDescription billboard_binding_desc = get_billboard_binding_description();
+	VkVertexInputBindingDescription billboard_binding_desc = get_point_light_binding_description();
 	u32 billboard_attr_count = 0;
-	get_billboard_attribute_descriptions(NULL, &billboard_attr_count);
+	get_point_light_attribute_descriptions(NULL, &billboard_attr_count);
 	VkVertexInputAttributeDescription billboard_attr_descs[billboard_attr_count];
-	get_billboard_attribute_descriptions(billboard_attr_descs, NULL);
+	get_point_light_attribute_descriptions(billboard_attr_descs, NULL);
 
 	VkPipelineVertexInputStateCreateInfo mesh_vertex_input = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -1347,11 +1349,11 @@ void create_graphics_pipelines(_app *p_app) {
 	};
 
 	VkPipelineVertexInputStateCreateInfo billboard_vertex_input = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 1,
-		.vertexAttributeDescriptionCount = billboard_attr_count,
-		.pVertexBindingDescriptions = &billboard_binding_desc,
-		.pVertexAttributeDescriptions = billboard_attr_descs,
+    .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    .vertexBindingDescriptionCount = 0,
+    .vertexAttributeDescriptionCount = 0,
+    .pVertexBindingDescriptions = NULL,
+    .pVertexAttributeDescriptions = NULL,
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_asm = {
@@ -1415,7 +1417,7 @@ void create_graphics_pipelines(_app *p_app) {
 		.alphaBlendOp = VK_BLEND_OP_ADD,
 	};
 
-	VkPipelineColorBlendAttachmentState blend_billboard = {
+	VkPipelineColorBlendAttachmentState blend_point_light = {
 		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 		.blendEnable = VK_TRUE,
 		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
@@ -1482,7 +1484,7 @@ void create_graphics_pipelines(_app *p_app) {
 	}
 
 	depth.depthWriteEnable = VK_FALSE;
-	blend_state.pAttachments = &blend_billboard;
+	blend_state.pAttachments = &blend_point_light;
 	pipeline_info.pColorBlendState = &blend_state;
 	pipeline_info.pStages = billboard_shader_stages;
 	pipeline_info.pVertexInputState = &billboard_vertex_input;
@@ -2014,10 +2016,10 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 }
 
 //// create billboard buffer ////
-void create_billboard_buffer(_app *p_app) {
-	u32 count = p_app->obj.billboard_count;
+void create_point_light_buffer(_app *p_app) {
+	u32 count = p_app->obj.light_count;
 
-	VkDeviceSize buffer_size = sizeof(_billboard) * count;
+	VkDeviceSize buffer_size = sizeof(_point_light) * count;
 
 	VkBuffer staging_buffer;
 	VmaAllocation staging_alloc;
@@ -2025,15 +2027,15 @@ void create_billboard_buffer(_app *p_app) {
 
 	void* data;
 	vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
-	memcpy(data, p_app->obj.billboards, buffer_size);
+	memcpy(data, p_app->obj.lights, buffer_size);
 	vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
 
 	create_buffer(p_app,
-	              buffer_size,
-	              VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-	              VMA_MEMORY_USAGE_GPU_ONLY,
-	              &p_app->billboard.instance_buffer,
-	              &p_app->billboard.instance_allocation);
+							 buffer_size,
+							 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+							 VMA_MEMORY_USAGE_GPU_ONLY,
+							 &p_app->billboard.instance_buffer,
+							 &p_app->billboard.instance_allocation);
 
 	copy_buffer(p_app, staging_buffer, p_app->billboard.instance_buffer, buffer_size);
 	vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
@@ -2397,14 +2399,14 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 	free(transparent_draw_order);
 
-if (p_app->obj.billboard_count > 0) {
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.billboard);
+	if (p_app->obj.light_count > 0) {
+		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.billboard);
 
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->billboard.instance_buffer, &offset);
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->billboard.instance_buffer, &offset);
 
-    vkCmdDraw(command_buffer, 6, p_app->obj.billboard_count, 0, 0);
-}
+		vkCmdDraw(command_buffer, 6, p_app->obj.light_count, 0, 0);
+	}
 
 	vkCmdEndRenderPass(command_buffer);
 
@@ -2662,13 +2664,11 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
-	vec4 light_pos = {0};
-	glm_vec3_copy(p_app->obj.billboards[0].position, light_pos);
-	light_pos[3] = 1.0f;
-	glm_vec4_copy(light_pos, ubo.light_position);
-
-	glm_vec4_copy((vec4){0.8f, 0.6f, 0.4f, 3.0f}, ubo.light_colour);
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, ubo.ambient_light);
+	glm_vec4(p_app->obj.lights[0].pos, 1.0f, ubo.lights[0].pos);
+	glm_vec4_copy(p_app->obj.lights[0].colour, ubo.lights[0].colour);
+	glm_vec4_copy(p_app->obj.lights[0].tint, ubo.lights[0].tint);
+	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient_light);
+	ubo.light_count = p_app->obj.light_count;
 
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
 }
@@ -2864,7 +2864,7 @@ void clean(_app *p_app) {
 	p_app->uniform.buffer_allocations = NULL;
 	p_app->uniform.buffers_mapped = NULL;
 
-	
+
 	vmaDestroyBuffer(p_app->mem.alloc, p_app->billboard.instance_buffer, p_app->billboard.instance_allocation);
 
 	for (u32 i = 0; i < p_app->obj.object_count; i++) {

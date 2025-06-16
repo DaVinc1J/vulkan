@@ -33,7 +33,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 
 #define MAX_OBJECT_FILES 16
-#define MAX_LIGHTS 8
+#define MAX_LIGHTS 16
 
 typedef struct _vertex {
 	float pos[3];
@@ -53,19 +53,19 @@ typedef struct _candidates {
 	u32 score;
 } _candidates;
 
-typedef struct _ubo {
-	mat4 view;
-	mat4 proj;
-	vec4 light_position;
-	vec4 light_colour;
-	vec4 ambient_light;
-} _ubo;
+typedef struct _point_light {
+	vec4 pos;
+	vec4 tint;
+	vec4 colour;
+} _point_light;
 
-typedef struct _billboard {
-	vec3 position;
-	float size;
-	vec4 color;
-} _billboard;
+typedef struct _ubo {
+	mat4 proj;
+	mat4 view;
+	vec4 ambient_light;
+	_point_light lights[16];
+	int light_count;
+} _ubo;
 
 typedef struct _push_constants {
 	mat4 model;
@@ -217,8 +217,8 @@ typedef struct _app_obj {
 	u32 object_count;
 	u32 texture_count;
 	fastObjMesh *mesh;
-	_billboard *billboards;
-	u32 billboard_count;
+	_point_light *lights;
+	u32 light_count;
 } _app_obj;
 
 typedef struct _app_view {
@@ -240,6 +240,10 @@ typedef struct _app_view {
 	float yaw, pitch;
 } _app_view;
 
+typedef struct _app_lighting {
+	vec4 ambient;
+} _app_lighting;
+
 typedef struct _app {
 	_app_window win;
 	_app_instance inst;
@@ -259,6 +263,7 @@ typedef struct _app {
 	_app_obj obj;
 	_app_view view;
 	_app_colour colour;
+	_app_lighting lighting;
 } _app;
 
 #endif
