@@ -54,12 +54,23 @@ typedef struct _candidates {
 } _candidates;
 
 typedef struct _ubo {
-	mat4 model;
 	mat4 view;
 	mat4 proj;
-	vec3 light_pos;
-	float _padding;
+	vec4 light_position;
+	vec4 light_colour;
+	vec4 ambient_light;
 } _ubo;
+
+typedef struct _billboard {
+	vec3 position;
+	float size;
+	vec4 color;
+} _billboard;
+
+typedef struct _push_constants {
+	mat4 model;
+	mat4 normal;
+} _push_constants;
 
 typedef struct _render_order {
 	u32 object_index;
@@ -116,6 +127,7 @@ typedef struct _app_pipeline {
 	VkPipelineLayout layout;
 	VkPipeline opaque;
 	VkPipeline transparent;
+	VkPipeline billboard;
 	VkFramebuffer* swapchain_framebuffers;
 } _app_pipeline;
 
@@ -141,6 +153,11 @@ typedef struct _app_mesh {
 	VmaAllocation* vertex_allocations;
 	VmaAllocation* index_allocations;
 } _app_mesh;
+
+typedef struct _app_billboard {
+	VkBuffer instance_buffer;
+	VmaAllocation instance_allocation;
+} _app_billboard;
 
 typedef struct _app_uniforms {
 	VkBuffer* buffers;
@@ -178,8 +195,10 @@ typedef struct _app_config {
 	char *win_title;
 	u32 win_width;
 	u32 win_height;
-	char *vert_shader_path;
-	char *frag_shader_path;
+	char *mesh_vert_shader_path;
+	char *mesh_frag_shader_path;
+	char *billboard_vert_shader_path;
+	char *billboard_frag_shader_path;
 	char **object_paths;
 	u32 object_files_count;
 } _app_config;
@@ -198,12 +217,13 @@ typedef struct _app_obj {
 	u32 object_count;
 	u32 texture_count;
 	fastObjMesh *mesh;
+	_billboard *billboards;
+	u32 billboard_count;
 } _app_obj;
 
 typedef struct _app_view {
 	vec3 camera_pos;
 	vec3 target;
-	vec3 up;
 	vec3 world_up;
 	float fov_y;
 	float near_plane;
@@ -235,6 +255,7 @@ typedef struct _app {
 	_app_depth depth;
 	_app_config config;
 	_app_mesh mesh;
+	_app_billboard billboard;
 	_app_obj obj;
 	_app_view view;
 	_app_colour colour;

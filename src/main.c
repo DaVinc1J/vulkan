@@ -21,7 +21,8 @@ const char* enabled_logical_device_extensions[] = {
 const u32 enabled_logical_device_extensions_count = sizeof(enabled_logical_device_extensions) / sizeof(enabled_logical_device_extensions[0]);
 
 const u32 MAX_FRAMES_IN_FLIGHT = 2;
-const u32 number_of_attributes = 4;
+const u32 number_of_mesh_attributes = 4;
+const u32 number_of_billboard_attributes = 3;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity, VkDebugUtilsMessageTypeFlagsEXT message_type, const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data, void* p_user_data);
 VkResult create_debug_utils_messenger_EXT(VkInstance inst, const VkDebugUtilsMessengerCreateInfoEXT *p_create_info, const VkAllocationCallbacks *p_alloc, VkDebugUtilsMessengerEXT *p_debug_messenger);
@@ -124,6 +125,7 @@ void create_texture_sampler(_app *p_app);
 // buffers //
 void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer *p_buffer, VmaAllocation *p_allocation);
 void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
+void create_billboard_buffer(_app *p_app);
 void create_mesh_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
 
@@ -160,7 +162,7 @@ void clean(_app *p_app);
 
 //// VERTEX READ ////
 
-VkVertexInputBindingDescription get_binding_description() {
+VkVertexInputBindingDescription get_mesh_binding_description() {
 	VkVertexInputBindingDescription binding_description = {};
 	binding_description.binding = 0;
 	binding_description.stride = sizeof(_vertex);
@@ -168,9 +170,17 @@ VkVertexInputBindingDescription get_binding_description() {
 	return binding_description;
 }
 
-void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 *num_attribs) {
+VkVertexInputBindingDescription get_billboard_binding_description() {
+	VkVertexInputBindingDescription binding_description = {};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(_billboard);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+	return binding_description;
+}
+
+void get_mesh_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 *num_attribs) {
 	if (attribs == NULL) {
-		*num_attribs = number_of_attributes;
+		*num_attribs = number_of_mesh_attributes;
 		return;
 	}
 
@@ -193,6 +203,28 @@ void get_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 
 	attribs[3].location = 3;
 	attribs[3].format = VK_FORMAT_R32_SINT;
 	attribs[3].offset = offsetof(_vertex, tex_index);
+}
+
+void get_billboard_attribute_descriptions(VkVertexInputAttributeDescription* attribs, u32 *num_attribs) {
+	if (attribs == NULL) {
+		*num_attribs = number_of_billboard_attributes;
+		return;
+	}
+
+	attribs[0].binding = 0;
+	attribs[0].location = 0;
+	attribs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attribs[0].offset = offsetof(_billboard, position);
+
+	attribs[1].binding = 0;
+	attribs[1].location = 1;
+	attribs[1].format = VK_FORMAT_R32_SFLOAT;
+	attribs[1].offset = offsetof(_billboard, size);
+
+	attribs[2].binding = 0;
+	attribs[2].location = 2;
+	attribs[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attribs[2].offset = offsetof(_billboard, color);
 }
 
 //// VERTEX READ ////
@@ -332,16 +364,20 @@ int main() {
 	app.config.win_title = "davincij";
 	app.config.win_width = 800;
 	app.config.win_height = 800;
-	app.config.vert_shader_path = "src/shaders/vert.spv";
-	app.config.frag_shader_path = "src/shaders/frag.spv";
+	app.config.mesh_vert_shader_path = "src/shaders/mesh.vert.spv";
+	app.config.mesh_frag_shader_path = "src/shaders/mesh.frag.spv";
+	app.config.billboard_vert_shader_path = "src/shaders/billboard.vert.spv";
+	app.config.billboard_frag_shader_path = "src/shaders/billboard.frag.spv";
 
 	char* object_paths[] = {
-		"src/objects/viking_room.obj"
+		"src/objects/viking_room.obj",
 	};
 
 	app.config.object_files_count = (u32)(sizeof(object_paths) / sizeof(object_paths[0]));
 	app.config.object_paths = malloc(sizeof(char*) * app.config.object_files_count);
-	app.config.object_paths[0] = "src/objects/viking_room.obj";
+	for (int i = 0; i < app.config.object_files_count; i++) {
+		app.config.object_paths[i] = object_paths[i];
+	}
 
 	glm_vec3_copy((vec3){2.0f, 2.0f, 2.0f}, app.view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, app.view.target);
@@ -351,12 +387,19 @@ int main() {
 	app.view.far_plane = 1000.0f;
 	app.view.rotation_speed = 0.0f;
 	app.view.speed = 0.1f;
-	app.view.lerp_speed = 0.3f;
+	app.view.lerp_speed = 1.0f;
 	app.view.sensitivity = 0.2f;
 	app.view.yaw = -90.0f;
 	app.view.pitch = 0.0f;
 	app.view.first_mouse = true;
 	app.view.mouse_locked = true;
+
+	_billboard billboards[] = {
+	{ .position = {1, 2, 1}, .size = 3.0f, .color = {1, 1, 0, 1} },
+};
+	
+	app.obj.billboard_count = sizeof(billboards) / sizeof(billboards[0]);
+	app.obj.billboards = billboards;
 
 	window_init(&app);
 	vulkan_init(&app);
@@ -413,6 +456,7 @@ void vulkan_init(_app *p_app) {
 	create_texture_image(p_app);
 	create_texture_image_view(p_app);
 	create_texture_sampler(p_app);
+	create_billboard_buffer(p_app);
 	create_mesh_buffer(p_app);
 	create_uniform_buffers(p_app);
 	create_descriptor_pool(p_app);
@@ -1106,19 +1150,19 @@ void create_render_pass(_app *p_app) {
 	};
 
 	VkAttachmentDescription colour_attachment_resolve = {
-    .format = p_app->swp.surface_format.format,
-    .samples = VK_SAMPLE_COUNT_1_BIT,
-    .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-    .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-    .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-    .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.format = p_app->swp.surface_format.format,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 	};
 
 	VkAttachmentReference colour_attachment_resolve_reference = {
-    .attachment = 2,
-    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.attachment = 2,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 	};
 
 	VkAttachmentDescription depth_attachment_description = {
@@ -1257,32 +1301,57 @@ char* read_file(_app *p_app, const char* filename, size_t* shader_code_size) {
 
 //// create pipeline ////
 void create_graphics_pipelines(_app *p_app) {
-	size_t vert_shader_code_size;
-	size_t frag_shader_code_size;
+	size_t mesh_vert_shader_code_size;
+	size_t mesh_frag_shader_code_size;
+	size_t billboard_vert_shader_code_size;
+	size_t billboard_frag_shader_code_size;
 
-	const char* vert_shader_code = read_file(p_app, p_app->config.vert_shader_path, &vert_shader_code_size);
-	const char* frag_shader_code = read_file(p_app, p_app->config.frag_shader_path, &frag_shader_code_size);
+	const char* mesh_vert_shader_code = read_file(p_app, p_app->config.mesh_vert_shader_path, &mesh_vert_shader_code_size);
+	const char* mesh_frag_shader_code = read_file(p_app, p_app->config.mesh_frag_shader_path, &mesh_frag_shader_code_size);
+	const char* billboard_vert_shader_code = read_file(p_app, p_app->config.billboard_vert_shader_path, &billboard_vert_shader_code_size);
+	const char* billboard_frag_shader_code = read_file(p_app, p_app->config.billboard_frag_shader_path, &billboard_frag_shader_code_size);
 
-	VkShaderModule vert_shader_module = create_shader_module(p_app, vert_shader_code, vert_shader_code_size); 
-	VkShaderModule frag_shader_module = create_shader_module(p_app, frag_shader_code, frag_shader_code_size);
+	VkShaderModule mesh_vert_shader_module = create_shader_module(p_app, mesh_vert_shader_code, mesh_vert_shader_code_size); 
+	VkShaderModule mesh_frag_shader_module = create_shader_module(p_app, mesh_frag_shader_code, mesh_frag_shader_code_size);
+	VkShaderModule billboard_vert_shader_module = create_shader_module(p_app, billboard_vert_shader_code, billboard_vert_shader_code_size); 
+	VkShaderModule billboard_frag_shader_module = create_shader_module(p_app, billboard_frag_shader_code, billboard_frag_shader_code_size);
 
-	VkPipelineShaderStageCreateInfo shader_stages[2] = {
-		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = vert_shader_module, .pName = "main" },
-		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = frag_shader_module, .pName = "main" },
+	VkPipelineShaderStageCreateInfo mesh_shader_stages[2] = {
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = mesh_vert_shader_module, .pName = "main" },
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = mesh_frag_shader_module, .pName = "main" },
 	};
 
-	VkVertexInputBindingDescription binding_desc = get_binding_description();
-	u32 attr_count = 0;
-	get_attribute_descriptions(NULL, &attr_count);
-	VkVertexInputAttributeDescription attr_descs[attr_count];
-	get_attribute_descriptions(attr_descs, NULL);
+	VkPipelineShaderStageCreateInfo billboard_shader_stages[2] = {
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = billboard_vert_shader_module, .pName = "main" },
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = billboard_frag_shader_module, .pName = "main" },
+	};
 
-	VkPipelineVertexInputStateCreateInfo vertex_input = {
+	VkVertexInputBindingDescription mesh_binding_desc = get_mesh_binding_description();
+	u32 mesh_attr_count = 0;
+	get_mesh_attribute_descriptions(NULL, &mesh_attr_count);
+	VkVertexInputAttributeDescription mesh_attr_descs[mesh_attr_count];
+	get_mesh_attribute_descriptions(mesh_attr_descs, NULL);
+
+	VkVertexInputBindingDescription billboard_binding_desc = get_billboard_binding_description();
+	u32 billboard_attr_count = 0;
+	get_billboard_attribute_descriptions(NULL, &billboard_attr_count);
+	VkVertexInputAttributeDescription billboard_attr_descs[billboard_attr_count];
+	get_billboard_attribute_descriptions(billboard_attr_descs, NULL);
+
+	VkPipelineVertexInputStateCreateInfo mesh_vertex_input = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		.vertexBindingDescriptionCount = 1,
-		.vertexAttributeDescriptionCount = attr_count,
-		.pVertexBindingDescriptions = &binding_desc,
-		.pVertexAttributeDescriptions = attr_descs,
+		.vertexAttributeDescriptionCount = mesh_attr_count,
+		.pVertexBindingDescriptions = &mesh_binding_desc,
+		.pVertexAttributeDescriptions = mesh_attr_descs,
+	};
+
+	VkPipelineVertexInputStateCreateInfo billboard_vertex_input = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 1,
+		.vertexAttributeDescriptionCount = billboard_attr_count,
+		.pVertexBindingDescriptions = &billboard_binding_desc,
+		.pVertexAttributeDescriptions = billboard_attr_descs,
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_asm = {
@@ -1346,15 +1415,34 @@ void create_graphics_pipelines(_app *p_app) {
 		.alphaBlendOp = VK_BLEND_OP_ADD,
 	};
 
+	VkPipelineColorBlendAttachmentState blend_billboard = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+	};
+
 	VkPipelineColorBlendStateCreateInfo blend_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
 		.attachmentCount = 1,
+	};
+
+	VkPushConstantRange push_constant_range = {
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.offset = 0,
+		.size = sizeof(_push_constants),
 	};
 
 	VkPipelineLayoutCreateInfo layout_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
 		.pSetLayouts = &p_app->pipeline.descriptor_set_layout,
+		.pushConstantRangeCount = 1,
+		.pPushConstantRanges = &push_constant_range,
 	};
 
 	if (vkCreatePipelineLayout(p_app->device.logical, &layout_info, NULL, &p_app->pipeline.layout) != VK_SUCCESS) {
@@ -1365,8 +1453,8 @@ void create_graphics_pipelines(_app *p_app) {
 	VkGraphicsPipelineCreateInfo pipeline_info = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,
-		.pStages = shader_stages,
-		.pVertexInputState = &vertex_input,
+		.pStages = mesh_shader_stages,
+		.pVertexInputState = &mesh_vertex_input,
 		.pInputAssemblyState = &input_asm,
 		.pViewportState = &viewport_state,
 		.pRasterizationState = &raster,
@@ -1393,8 +1481,20 @@ void create_graphics_pipelines(_app *p_app) {
 		exit(EXIT_FAILURE);
 	}
 
-	vkDestroyShaderModule(p_app->device.logical, frag_shader_module, NULL);
-	vkDestroyShaderModule(p_app->device.logical, vert_shader_module, NULL);
+	depth.depthWriteEnable = VK_FALSE;
+	blend_state.pAttachments = &blend_billboard;
+	pipeline_info.pColorBlendState = &blend_state;
+	pipeline_info.pStages = billboard_shader_stages;
+	pipeline_info.pVertexInputState = &billboard_vertex_input;
+	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.billboard) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "billboard pipeline => failed");
+		exit(EXIT_FAILURE);
+	}
+
+	vkDestroyShaderModule(p_app->device.logical, mesh_frag_shader_module, NULL);
+	vkDestroyShaderModule(p_app->device.logical, mesh_vert_shader_module, NULL);
+	vkDestroyShaderModule(p_app->device.logical, billboard_frag_shader_module, NULL);
+	vkDestroyShaderModule(p_app->device.logical, billboard_vert_shader_module, NULL);
 }
 
 //// create shader module ////
@@ -1489,7 +1589,7 @@ bool has_stencil_component(VkFormat format) {
 void create_colour_resources(_app *p_app) {
 	VkFormat colour_format = p_app->swp.surface_format.format;
 
-  create_image(p_app, &p_app->colour.image, 1, p_app->device.msaa_samples, &p_app->colour.image_allocation, p_app->swp.extent.width, p_app->swp.extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+	create_image(p_app, &p_app->colour.image, 1, p_app->device.msaa_samples, &p_app->colour.image_allocation, p_app->swp.extent.width, p_app->swp.extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 	create_image_view(p_app, p_app->colour.image, &p_app->colour.image_view, 1, colour_format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
@@ -1913,7 +2013,33 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 	end_single_time_commands(p_app, command_buffer);
 }
 
-//// create combined_buffer ////
+//// create billboard buffer ////
+void create_billboard_buffer(_app *p_app) {
+	u32 count = p_app->obj.billboard_count;
+
+	VkDeviceSize buffer_size = sizeof(_billboard) * count;
+
+	VkBuffer staging_buffer;
+	VmaAllocation staging_alloc;
+	create_buffer(p_app, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_buffer, &staging_alloc);
+
+	void* data;
+	vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
+	memcpy(data, p_app->obj.billboards, buffer_size);
+	vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
+
+	create_buffer(p_app,
+	              buffer_size,
+	              VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	              VMA_MEMORY_USAGE_GPU_ONLY,
+	              &p_app->billboard.instance_buffer,
+	              &p_app->billboard.instance_allocation);
+
+	copy_buffer(p_app, staging_buffer, p_app->billboard.instance_buffer, buffer_size);
+	vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
+}
+
+//// create mesh buffer ////
 void create_mesh_buffer(_app *p_app) {
 	u32 object_count = p_app->obj.object_count;
 
@@ -1929,7 +2055,6 @@ void create_mesh_buffer(_app *p_app) {
 		VkDeviceSize v_size = sizeof(_vertex) * v_count;
 		VkDeviceSize i_size = sizeof(u32) * i_count;
 
-		// Vertex buffer
 		VkBuffer staging_vb;
 		VmaAllocation staging_va;
 		create_buffer(p_app, v_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_vb, &staging_va);
@@ -1946,7 +2071,6 @@ void create_mesh_buffer(_app *p_app) {
 		copy_buffer(p_app, staging_vb, p_app->mesh.vertex_buffers[o], v_size);
 		vmaDestroyBuffer(p_app->mem.alloc, staging_vb, staging_va);
 
-		// Index buffer
 		VkBuffer staging_ib;
 		VmaAllocation staging_ia;
 		create_buffer(p_app, i_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_ib, &staging_ia);
@@ -2063,7 +2187,6 @@ void create_descriptor_sets(_app *p_app) {
 			.range = sizeof(_ubo)
 		};
 
-		// Count valid textures
 		u32 valid_tex_count = 0;
 		for (u32 j = 0; j < p_app->obj.texture_count; j++) {
 			if (p_app->tex.image_views[j] != VK_NULL_HANDLE) {
@@ -2202,6 +2325,32 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
 		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
+
+		_push_constants pc;
+		glm_mat4_identity(pc.model);
+		glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
+
+		mat3 normal3;
+		glm_mat4_pick3(pc.model, normal3);
+		glm_mat3_inv(normal3, normal3);
+		glm_mat3_transpose(normal3);
+
+		glm_mat4_identity(pc.normal);
+		for (int i = 0; i < 3; ++i) {
+			for (int j = 0; j < 3; ++j) {
+				pc.normal[i][j] = normal3[i][j];
+			}
+		}
+
+		vkCmdPushConstants(
+			command_buffer,
+			p_app->pipeline.layout,
+			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			0,
+			sizeof(_push_constants),
+			&pc
+		);
+
 		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
 	}
 
@@ -2247,6 +2396,15 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	}
 
 	free(transparent_draw_order);
+
+if (p_app->obj.billboard_count > 0) {
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.billboard);
+
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->billboard.instance_buffer, &offset);
+
+    vkCmdDraw(command_buffer, 6, p_app->obj.billboard_count, 0, 0);
+}
 
 	vkCmdEndRenderPass(command_buffer);
 
@@ -2456,6 +2614,8 @@ void cleanup_swapchain(_app *p_app) {
 
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
+	vkDestroyImageView(p_app->device.logical, p_app->colour.image_view, NULL);
+	vmaDestroyImage(p_app->mem.alloc, p_app->colour.image, p_app->colour.image_allocation);
 
 	vkDestroySwapchainKHR(p_app->device.logical, p_app->swp.swapchain, NULL);
 }
@@ -2494,19 +2654,22 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 		(current_time.tv_nsec - start_time.tv_nsec) / 1e9f;
 
 	_ubo ubo;
-	glm_mat4_identity(ubo.model);
-
-	float angle = glm_rad(p_app->view.rotation_speed) * time;
-	glm_rotate(ubo.model, angle, (vec3){0.0f, 1.0f, 0.0f});
 
 	glm_lookat(p_app->view.camera_pos, p_app->view.target, p_app->view.world_up, ubo.view);
 
-	float aspect = p_app->swp.extent.width / (float)p_app->swp.extent.height;
+	float aspect = (float)p_app->swp.extent.width / (float)p_app->swp.extent.height;
 	glm_perspective(glm_rad(p_app->view.fov_y), aspect,
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
-	glm_vec3_copy(p_app->view.camera_pos, ubo.light_pos);
+	vec4 light_pos = {0};
+	glm_vec3_copy(p_app->obj.billboards[0].position, light_pos);
+	light_pos[3] = 1.0f;
+	glm_vec4_copy(light_pos, ubo.light_position);
+
+	glm_vec4_copy((vec4){0.8f, 0.6f, 0.4f, 3.0f}, ubo.light_colour);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, ubo.ambient_light);
+
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
 }
 
@@ -2701,6 +2864,9 @@ void clean(_app *p_app) {
 	p_app->uniform.buffer_allocations = NULL;
 	p_app->uniform.buffers_mapped = NULL;
 
+	
+	vmaDestroyBuffer(p_app->mem.alloc, p_app->billboard.instance_buffer, p_app->billboard.instance_allocation);
+
 	for (u32 i = 0; i < p_app->obj.object_count; i++) {
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.vertex_buffers[i], p_app->mesh.vertex_allocations[i]);
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.index_buffers[i], p_app->mesh.index_allocations[i]);
@@ -2740,6 +2906,7 @@ void clean(_app *p_app) {
 
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.opaque, NULL);
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.transparent, NULL);
+	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.billboard, NULL);
 	vkDestroyPipelineLayout(p_app->device.logical, p_app->pipeline.layout, NULL);
 	vkDestroyRenderPass(p_app->device.logical, p_app->pipeline.render_pass, NULL);
 
@@ -2890,8 +3057,8 @@ void flatten(_app_obj* p_obj) {
 
 					if (idx.p >= 0 && idx.p < p_obj->mesh->position_count) {
 						v.pos[0] = p_obj->mesh->positions[3 * idx.p + 0];
-						v.pos[1] = p_obj->mesh->positions[3 * idx.p + 1];
-						v.pos[2] = p_obj->mesh->positions[3 * idx.p + 2];
+						v.pos[2] = -p_obj->mesh->positions[3 * idx.p + 1];
+						v.pos[1] = p_obj->mesh->positions[3 * idx.p + 2];
 					}
 
 					if (idx.t >= 0 && idx.t < p_obj->mesh->texcoord_count) {
@@ -2901,8 +3068,8 @@ void flatten(_app_obj* p_obj) {
 
 					if (idx.n >= 0 && idx.n < p_obj->mesh->normal_count) {
 						v.norm[0] = p_obj->mesh->normals[3 * idx.n + 0];
-						v.norm[1] = p_obj->mesh->normals[3 * idx.n + 1];
-						v.norm[2] = p_obj->mesh->normals[3 * idx.n + 2];
+						v.norm[2] = -p_obj->mesh->normals[3 * idx.n + 1];
+						v.norm[1] = p_obj->mesh->normals[3 * idx.n + 2];
 					}
 
 					v.tex_index = p_obj->mesh->materials[mat].map_Kd - 1;
