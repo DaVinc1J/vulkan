@@ -1,23 +1,25 @@
 #version 450
 
-layout(location = 0) in vec4 in_pos; // position + size (w = scale)
-layout(location = 1) in vec4 in_tint; // tint color
-layout(location = 2) in vec4 in_colour; // actual light color (could be used in fragment shader)
+layout(location = 0) in vec4 in_pos;
+layout(location = 1) in vec4 in_tint;
+layout(location = 2) in vec4 in_data;
+layout(location = 3) in vec4 in_flags;
 
 layout(location = 0) out vec2 frag_offset;
 layout(location = 1) out vec4 frag_color;
 
-struct _point_light {
+struct _billboard {
     vec4 pos;
     vec4 tint;
-    vec4 colour;
+    vec4 data;
+    vec4 flags;
 };
 
 layout(set = 0, binding = 0) uniform _ubo {
     mat4 proj;
     mat4 view;
     vec4 ambient_light;
-    _point_light lights[16]; // this is still needed for fragment lighting, if used
+    _billboard lights[16];
     int light_count;
 } ubo;
 
@@ -32,7 +34,7 @@ const vec2 OFFSETS[6] = vec2[](
 
 void main() {
     frag_offset = OFFSETS[gl_VertexIndex];
-    frag_color = in_tint;
+    frag_color = in_data;
 
     vec3 right = vec3(ubo.view[0][0], ubo.view[1][0], ubo.view[2][0]);
     vec3 up = vec3(ubo.view[0][1], ubo.view[1][1], ubo.view[2][1]);

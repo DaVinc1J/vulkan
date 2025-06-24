@@ -13,8 +13,8 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <cglm/cglm.h>
-#define FAST_OBJ_IMPLEMENTATION
 #include "libraries/fast_obj.h"
+#include "libraries/cgltf.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +34,20 @@ typedef int32_t i32;
 
 #define MAX_OBJECT_FILES 16
 #define MAX_LIGHTS 16
+extern const u32 MAX_FRAMES_IN_FLIGHT;
+
+u32 clamp(u32 n, u32 min, u32 max);
+
+typedef enum {
+	ENTRY_TYPE_TRANSPARENT_MESH,
+	ENTRY_TYPE_BILLBOARD
+} _transparency_entry_type;
+
+typedef struct {
+	_transparency_entry_type type;
+	u32 index;
+	float distance;
+} _transparency_entry;
 
 typedef struct _vertex {
 	float pos[3];
@@ -53,17 +67,18 @@ typedef struct _candidates {
 	u32 score;
 } _candidates;
 
-typedef struct _point_light {
+typedef struct _billboard {
 	vec4 pos;
 	vec4 tint;
-	vec4 colour;
-} _point_light;
+	vec4 data;
+	vec4 flags;
+} _billboard;
 
 typedef struct _ubo {
 	mat4 proj;
 	mat4 view;
 	vec4 ambient_light;
-	_point_light lights[16];
+	_billboard lights[16];
 	int light_count;
 } _ubo;
 
@@ -204,7 +219,7 @@ typedef struct _app_config {
 	u32 object_files_count;
 } _app_config;
 
-typedef struct _app_obj {
+typedef struct _app_objects {
 	_vertex** vertices;
 	u32** indices;
 	u32* vertices_count;
@@ -218,9 +233,9 @@ typedef struct _app_obj {
 	u32 object_count;
 	u32 texture_count;
 	fastObjMesh *mesh;
-	_point_light *lights;
+	_billboard *lights;
 	u32 light_count;
-} _app_obj;
+} _app_objects;
 
 typedef struct _app_view {
 	vec3 camera_pos;
@@ -245,6 +260,14 @@ typedef struct _app_lighting {
 	vec4 ambient;
 } _app_lighting;
 
+typedef struct _app_performance {
+	struct timespec last_frame_time;
+	float delta_time;
+	float frame_time_avg;
+	float fps_avg;
+	int frame_count;
+} _app_performance;
+
 typedef struct _app {
 	_app_window win;
 	_app_instance inst;
@@ -261,10 +284,11 @@ typedef struct _app {
 	_app_config config;
 	_app_mesh mesh;
 	_app_billboard billboard;
-	_app_obj obj;
+	_app_objects obj;
 	_app_view view;
 	_app_colour colour;
 	_app_lighting lighting;
+	_app_performance perf;
 } _app;
 
 #endif

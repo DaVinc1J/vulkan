@@ -15,17 +15,18 @@ layout(push_constant) uniform _push_constants {
     mat4 normal;
 } push;
 
-struct _point_light {
+struct _billboard {
     vec4 pos;
     vec4 tint;
-    vec4 colour;
+    vec4 data;
+    vec4 flags;
 };
 
 layout(binding = 0) uniform _ubo {
     mat4 proj;
     mat4 view;
     vec4 ambient_light;
-    _point_light lights[16];
+    _billboard lights[16];
     int light_count;
 } ubo;
 
