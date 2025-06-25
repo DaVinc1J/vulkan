@@ -1,6 +1,6 @@
-#include "vk_renderpass.h"
-#include "vk_validation.h"
-#include "vk_image.h"
+#include "headers/renderpass.h"
+#include "headers/validation.h"
+#include "headers/image.h"
 
 void create_render_pass(_app *p_app) {
 	VkAttachmentDescription colour_attachment_description = {

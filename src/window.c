@@ -1,4 +1,4 @@
-#include "window.h"
+#include "headers/window.h"
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
 	_app *p_app = (_app*)glfwGetWindowUserPointer(window);

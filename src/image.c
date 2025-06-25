@@ -1,7 +1,7 @@
-#include "vk_image.h"
-#include "vk_validation.h"
-#include "vk_buffer.h"
-#include "vk_swapchain.h"
+#include "headers/image.h"
+#include "headers/validation.h"
+#include "headers/buffer.h"
+#include "headers/swapchain.h"
 
 VkFormat find_supported_format(_app *p_app, VkPhysicalDevice physical_device, const VkFormat *candidates, size_t candidate_count, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (size_t i = 0; i < candidate_count; i++) {

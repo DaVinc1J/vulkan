@@ -1,5 +1,5 @@
-#include "vk_sync.h"
-#include "vk_validation.h"
+#include "headers/sync.h"
+#include "headers/validation.h"
 
 void create_sync_objects(_app *p_app) {
 

@@ -1,7 +1,7 @@
-#include "vk_loop.h"
-#include "vk_validation.h"
-#include "vk_swapchain.h"
-#include "vk_buffer.h"
+#include "headers/loop.h"
+#include "headers/validation.h"
+#include "headers/swapchain.h"
+#include "headers/buffer.h"
 
 void log_performance(_app *p_app) {
 	struct timespec now;
@@ -167,7 +167,6 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 		vec4 rotated_pos = { x, y, z, w };
 		glm_vec4_copy(rotated_pos, ubo.lights[i].pos);
 		glm_vec4_copy(rotated_pos, p_app->obj.lights[i].pos);
-		glm_vec4_copy(p_app->obj.lights[i].tint, ubo.lights[i].tint);
 		glm_vec4_copy(p_app->obj.lights[i].data, ubo.lights[i].data);
 		glm_vec4_copy(p_app->obj.lights[i].flags, ubo.lights[i].flags);
 	}

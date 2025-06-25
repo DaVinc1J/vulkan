@@ -1,4 +1,4 @@
-#include "object.h"
+#include "headers/object.h"
 
 void read_obj_file(_app *p_app) {
 	u32 file_count = p_app->config.object_files_count;

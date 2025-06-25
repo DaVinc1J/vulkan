@@ -13,14 +13,14 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <cglm/cglm.h>
-#include "libraries/fast_obj.h"
-#include "libraries/cgltf.h"
+#include "../libraries/fast_obj.h"
+#include "../libraries/cgltf.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "libraries/vk_mem_alloc.h"
-#include "libraries/stb_image.h"
+#include "../libraries/vk_mem_alloc.h"
+#include "../libraries/stb_image.h"
 #ifdef __cplusplus
 }
 #endif

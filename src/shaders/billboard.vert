@@ -1,16 +1,14 @@
 #version 450
 
 layout(location = 0) in vec4 in_pos;
-layout(location = 1) in vec4 in_tint;
-layout(location = 2) in vec4 in_data;
-layout(location = 3) in vec4 in_flags;
+layout(location = 1) in vec4 in_data;
+layout(location = 2) in vec4 in_flags;
 
 layout(location = 0) out vec2 frag_offset;
 layout(location = 1) out vec4 frag_color;
 
 struct _billboard {
     vec4 pos;
-    vec4 tint;
     vec4 data;
     vec4 flags;
 };

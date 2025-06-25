@@ -1,7 +1,7 @@
-#include "shader.h"
+#include "headers/shader.h"
 
 const u32 number_of_mesh_attributes = 4;
-const u32 number_of_billboard_attributes = 4;
+const u32 number_of_billboard_attributes = 3;
 
 VkVertexInputBindingDescription get_mesh_binding_description() {
 	VkVertexInputBindingDescription binding_description = {};
@@ -60,15 +60,10 @@ void get_billboard_attribute_descriptions(VkVertexInputAttributeDescription* att
 	attribs[1].binding = 0;
 	attribs[1].location = 1;
 	attribs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attribs[1].offset = offsetof(_billboard, tint);
+	attribs[1].offset = offsetof(_billboard, data);
 
 	attribs[2].binding = 0;
 	attribs[2].location = 2;
 	attribs[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attribs[2].offset = offsetof(_billboard, data);
-
-	attribs[3].binding = 0;
-	attribs[3].location = 3;
-	attribs[3].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attribs[3].offset = offsetof(_billboard, flags);
+	attribs[2].offset = offsetof(_billboard, flags);
 }

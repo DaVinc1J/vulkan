@@ -1,19 +1,19 @@
 #define FAST_OBJ_IMPLEMENTATION
 #define CGLTF_IMPLEMENTATION
-#include "define.h"
-#include "app.h"
-#include "window.h"
-#include "vk_validation.h"
-#include "object.h"
-#include "vk_core.h"
-#include "vk_swapchain.h"
-#include "vk_renderpass.h"
-#include "vk_pipeline.h"
-#include "vk_sync.h"
-#include "vk_buffer.h"
-#include "vk_image.h"
-#include "vk_descriptors.h"
-#include "vk_loop.h"
+#include "headers/define.h"
+#include "headers/app.h"
+#include "headers/window.h"
+#include "headers/validation.h"
+#include "headers/object.h"
+#include "headers/core.h"
+#include "headers/swapchain.h"
+#include "headers/renderpass.h"
+#include "headers/pipeline.h"
+#include "headers/sync.h"
+#include "headers/buffer.h"
+#include "headers/image.h"
+#include "headers/descriptors.h"
+#include "headers/loop.h"
 
 void vulkan_init(_app *p_app);
 void clean(_app *p_app);

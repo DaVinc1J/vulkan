@@ -1,5 +1,5 @@
-#include "vk_descriptors.h"
-#include "vk_validation.h"
+#include "headers/descriptors.h"
+#include "headers/validation.h"
 
 void create_descriptor_set_layout(_app *p_app) {
 	VkDescriptorSetLayoutBinding ubo_layout_binding = {

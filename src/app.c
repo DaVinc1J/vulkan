@@ -1,4 +1,4 @@
-#include "app.h"
+#include "headers/app.h"
 
 void app_init(_app *p_app) {
 	p_app->config.win_title = "davincij";
@@ -39,9 +39,9 @@ void app_init(_app *p_app) {
 	p_app->view.mouse_locked = true;
 
 	static const _billboard lights[] = {
-		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {1.0f, 1.0f, 0.0f, 1.0f}, .data = {1.0f, 1.0f, 0.0f, 0.5f}, .flags = {0, 0, 0, 0}},
-		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {1.0f, 0.0f, 1.0f, 1.0f}, .data = {1.0f, 0.0f, 1.0f, 0.5f}, .flags = {0, 0, 0, 0}},
-		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .tint = {0.0f, 1.0f, 1.0f, 1.0f}, .data = {0.0f, 1.0f, 1.0f, 0.5f}, .flags = {0, 0, 0, 0}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .data = {1.0f, 1.0f, 0.0f, 0.5f}, .flags = {0, 0, 0, 0}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .data = {1.0f, 0.0f, 1.0f, 0.5f}, .flags = {0, 0, 0, 0}},
+		{ .pos = {0.0f, 1.0f, 0.0f, 0.25f}, .data = {0.0f, 1.0f, 1.0f, 0.5f}, .flags = {0, 0, 0, 0}},
 	};
 
 	p_app->obj.light_count = sizeof(lights) / sizeof(lights[0]);

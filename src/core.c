@@ -1,5 +1,5 @@
-#include "vk_core.h"
-#include "vk_validation.h"
+#include "headers/core.h"
+#include "headers/validation.h"
 
 void create_instance(_app *p_app) {
 	if (enable_validation_layers && !check_validation_layer_support()) {

@@ -1,6 +1,6 @@
-#include "vk_pipeline.h"
-#include "shader.h"
-#include "vk_validation.h"
+#include "headers/pipeline.h"
+#include "headers/shader.h"
+#include "headers/validation.h"
 
 char* read_file(_app *p_app, const char* filename, size_t* shader_code_size) {
 	FILE* p_file = fopen(filename, "rb");

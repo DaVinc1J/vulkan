@@ -1,7 +1,7 @@
-#include "vk_swapchain.h"
-#include "vk_validation.h"
-#include "vk_core.h"
-#include "vk_image.h"
+#include "headers/swapchain.h"
+#include "headers/validation.h"
+#include "headers/core.h"
+#include "headers/image.h"
 
 VkSurfaceFormatKHR choose_swapchain_surface_format(_app *p_app, _swapchain_support *p_support) {
 

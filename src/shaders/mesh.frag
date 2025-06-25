@@ -10,7 +10,6 @@ layout(location = 0) out vec4 out_color;
 
 struct _billboard {
     vec4 pos;
-    vec4 tint;
     vec4 data;
     vec4 flags;
 };

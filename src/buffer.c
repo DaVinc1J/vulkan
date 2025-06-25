@@ -1,5 +1,5 @@
-#include "vk_buffer.h"
-#include "vk_validation.h"
+#include "headers/buffer.h"
+#include "headers/validation.h"
 
 void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage, VkBuffer *p_buffer, VmaAllocation *p_allocation) {
 	VkBufferCreateInfo buffer_create_info = {
@@ -356,7 +356,6 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 			_billboard* src = &p_app->obj.lights[idx];
 
 			glm_vec4_copy(src->pos,sorted_instances[i].pos);
-			glm_vec4_copy(src->tint, sorted_instances[i].tint);
 			glm_vec4_copy(src->data, sorted_instances[i].data);
 			glm_vec4_copy(src->flags, sorted_instances[i].flags);
 		}
