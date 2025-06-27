@@ -139,57 +139,6 @@ void create_mipmaps(_app *p_app, VkImage image, u32 mip_levels, i32 tex_width, i
 	end_single_time_commands(p_app, command_buffer);
 }
 
-//// create texture ////
-void create_texture_atlas(_app *p_app) {
-
-	u32 files_count = p_app->config.gltf_files_count;
-
-	p_app->tex.atlases = malloc(sizeof(VkImage) * files_count);
-
-	for (u32 i = 0; i < files_count; i++) {
-		u32 texture_count = p_app->obj.data[i]->textures_count;
-		
-		VkDeviceSize atlas_size = 512 * 512 * 4;
-		create_image(p_app, &p_app->tex.atlases[i], 1, VK_SAMPLE_COUNT_1_BIT, NULL, 512, 512, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-
-		VkBuffer staging_buffer;
-		VmaAllocation staging_alloc;
-
-		u32 lowest_mip_level = UINT32_MAX;
-		_packer packer = {0};
-
-		for (u32 j = 0; j < texture_count; j++) {
-			const char *path = p_app->obj.data[i]->textures[j].image->uri;
-			int tex_w, tex_h, tex_channels;
-			stbi_uc* pixels = stbi_load(path, &tex_w, &tex_h, &tex_channels, STBI_rgb_alpha);
-
-			if (!pixels) {
-				submit_debug_message(
-					p_app->inst.instance,
-					VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-					"texture image => failed to load texture: %s", path
-				);
-				exit(EXIT_FAILURE);
-			}
-
-			u32 mip_level = (u32)floor(log2(tex_w > tex_h ? tex_w : tex_h)) + 1;
-			if (mip_level < lowest_mip_level) {
-				lowest_mip_level = mip_level;
-			}
-
-			u32 pixel_count = (u32)(tex_w * tex_h);
-			for (u32 j = 0; j < pixel_count; j++) {
-				if (pixels[j * 4 + 3] < 255) {
-					break;
-				}
-			}
-
-
-
-
-		}
-	}
-}
 void create_texture_image(_app *p_app) {
 	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.texture_count);
 	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.texture_count);

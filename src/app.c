@@ -32,6 +32,21 @@ void app_init(_app *p_app) {
 		p_app->config.gltf_paths[i] = gltf_paths[i];
 	}
 
+	char *file_path = "src/objects/";
+	char *atlas_path = "src/atlases/";
+	char *gltf_files[] = {
+		"doom_E1M1.gltf"
+	};
+
+	p_app->config.gltf.file_count = sizeof(gltf_files) / sizeof(gltf_files[0]);
+	p_app->config.gltf.file_names = malloc(sizeof(char *) * p_app->config.gltf.file_count);
+	for (u32 i = 0; i < p_app->config.gltf.file_count; i++) {
+		p_app->config.gltf.file_names[i] = strdup(gltf_files[i]);
+	}
+	p_app->config.gltf.file_dir = strdup(file_path);
+	p_app->config.gltf.atlas_dir = strdup(atlas_path);
+
+
 	glm_vec3_copy((vec3){0.0f, 2.0f, 0.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, p_app->view.world_up);

@@ -150,6 +150,16 @@ typedef struct _swapchain_support {
 	u32 present_modes_count;
 } _swapchain_support;
 
+typedef struct _file_info {
+	char **file_names;
+	char **atlas_names;
+	char *file_dir;
+	char *atlas_dir;
+	u32 atlas_count;
+	u32 file_count;
+	u32 *file_to_atlas_map;
+} _file_info;
+
 typedef struct _app_window {
 	GLFWwindow* window;
 } _app_window;
@@ -263,6 +273,7 @@ typedef struct _app_config {
 	char **gltf_paths;
 	u32 gltf_files_count;
 	u32 object_files_count;
+	_file_info gltf;
 } _app_config;
 
 typedef struct _app_objects {

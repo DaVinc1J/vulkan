@@ -2,11 +2,22 @@
 #include "headers/atlas.h"
 
 void load_gltf(_app *p_app) {
-	u32 file_count = p_app->config.gltf_files_count;
+	u32 file_count = p_app->config.gltf.file_count;
 	p_app->obj.data = malloc(sizeof(cgltf_data*) * file_count);
 
 	for (u32 i = 0; i < file_count; i++) {
+
+		const char *dir = p_app->config.gltf.file_dir;
+		const char *file = p_app->config.gltf.file_names[i];
+
+		size_t len = strlen(dir) + strlen(file) + 1;
+		char *path = malloc(len);
+
+		strcpy(path, dir);
+		strcat(path, file);	
+
 		cgltf_options options = {0};
+
 		cgltf_parse_file(&options, p_app->config.gltf_paths[i], &p_app->obj.data[i]);
 		cgltf_load_buffers(&options, p_app->obj.data[i], p_app->config.gltf_paths[i]);
 
