@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <assert.h>
 #include <time.h>
 
 #define GLFW_INCLUDE_VULKAN
@@ -21,6 +22,7 @@ extern "C" {
 #endif
 #include "../libraries/vk_mem_alloc.h"
 #include "../libraries/stb_image.h"
+#include "../libraries/stb_image_write.h"
 #ifdef __cplusplus
 }
 #endif
@@ -48,6 +50,48 @@ typedef struct {
 	u32 index;
 	float distance;
 } _transparency_entry;
+
+typedef struct _division {
+	u16 x;
+	u16 y;
+	u16 w;
+	u16 h;
+} _division;
+
+typedef enum _texture_flags {
+	TEXTURE_FLAG_NONE       = 0,
+	TEXTURE_FLAG_HAS_ALPHA  = 1 << 0,
+	TEXTURE_FLAG_IS_ROTATED = 1 << 1,
+} _texture_flags;
+
+typedef struct _texture {
+	u16 index;
+	u16 x;
+	u16 y;
+	u16 w;
+	u16 h;
+	u8 flags;
+} _texture;
+
+typedef struct _texture_entry {
+	u16 w;
+	u16 h;
+	u16 index;
+	stbi_uc *pixels;
+} _texture_entry;
+
+typedef struct _textures {
+	u16 count;
+	_texture_entry *entries;
+} _textures;
+
+typedef struct _packer {
+	u16 scale;
+	_division *divisions;
+	u16 division_count;
+	_texture *textures;
+	u16 texture_count;
+} _packer;
 
 typedef struct _vertex {
 	float pos[3];
@@ -188,6 +232,7 @@ typedef struct _app_descriptors {
 typedef struct _app_texture {
 	u32 *mip_levels;
 	VkImage *images;
+	VkImage *atlases;
 	VmaAllocation *image_allocations;
 	VkImageView *image_views;
 	u32 *has_alpha;
@@ -215,6 +260,8 @@ typedef struct _app_config {
 	char *billboard_vert_shader_path;
 	char *billboard_frag_shader_path;
 	char **object_paths;
+	char **gltf_paths;
+	u32 gltf_files_count;
 	u32 object_files_count;
 } _app_config;
 
@@ -234,6 +281,8 @@ typedef struct _app_objects {
 	fastObjMesh *mesh;
 	_billboard *lights;
 	u32 light_count;
+	cgltf_data **data;
+	cgltf_options options;
 } _app_objects;
 
 typedef struct _app_view {

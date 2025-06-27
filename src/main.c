@@ -14,6 +14,7 @@
 #include "headers/image.h"
 #include "headers/descriptors.h"
 #include "headers/loop.h"
+#include "headers/atlas.h"
 
 void vulkan_init(_app *p_app);
 void clean(_app *p_app);
@@ -38,6 +39,8 @@ int main() {
 
 void vulkan_init(_app *p_app) {
 	read_obj_file(p_app);
+	load_gltf(p_app);
+	//pack_textures(p_app);
 	create_instance(p_app);
 	setup_debug_messenger(p_app);
 	create_surface(p_app);

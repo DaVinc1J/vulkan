@@ -3235,172 +3235,172 @@
   ],
   "images": [
     {
-      "uri": ".../textures/BIGDOOR2_baseColor.png"
+      "uri": "BIGDOOR2.png"
     },
     {
-      "uri": ".../textures/BIGDOOR4_baseColor.png"
+      "uri": "BIGDOOR4.png"
     },
     {
-      "uri": ".../textures/BRNBIGC_baseColor.png"
+      "uri": "BRNBIGC.png"
     },
     {
-      "uri": ".../textures/BRNBIGL_baseColor.png"
+      "uri": "BRNBIGL.png"
     },
     {
-      "uri": ".../textures/BRNBIGR_baseColor.png"
+      "uri": "BRNBIGR.png"
     },
     {
-      "uri": ".../textures/BROWN1_baseColor.png"
+      "uri": "BROWN1.png"
     },
     {
-      "uri": ".../textures/BROWN144_baseColor.png"
+      "uri": "BROWN144.png"
     },
     {
-      "uri": ".../textures/BROWN96_baseColor.png"
+      "uri": "BROWN96.png"
     },
     {
-      "uri": ".../textures/BROWNGRN_baseColor.png"
+      "uri": "BROWNGRN.png"
     },
     {
-      "uri": ".../textures/CEIL3_5_baseColor.png"
+      "uri": "CEIL3_5.png"
     },
     {
-      "uri": ".../textures/CEIL5_1_baseColor.png"
+      "uri": "CEIL5_1.png"
     },
     {
-      "uri": ".../textures/CEIL5_2_baseColor.png"
+      "uri": "CEIL5_2.png"
     },
     {
-      "uri": ".../textures/COMPSPAN_baseColor.png"
+      "uri": "COMPSPAN.png"
     },
     {
-      "uri": ".../textures/COMPTALL_baseColor.png"
+      "uri": "COMPTALL.png"
     },
     {
-      "uri": ".../textures/COMPTILE_baseColor.png"
+      "uri": "COMPTILE.png"
     },
     {
-      "uri": ".../textures/COMPUTE2_baseColor.png"
+      "uri": "COMPUTE2.png"
     },
     {
-      "uri": ".../textures/COMPUTE3_baseColor.png"
+      "uri": "COMPUTE3.png"
     },
     {
-      "uri": ".../textures/DOOR3_baseColor.png"
+      "uri": "DOOR3.png"
     },
     {
-      "uri": ".../textures/DOORSTOP_baseColor.png"
+      "uri": "DOORSTOP.png"
     },
     {
-      "uri": ".../textures/DOORTRAK_baseColor.png"
+      "uri": "DOORTRAK.png"
     },
     {
-      "uri": ".../textures/EXITDOOR_baseColor.png"
+      "uri": "EXITDOOR.png"
     },
     {
-      "uri": ".../textures/EXITSIGN_baseColor.png"
+      "uri": "EXITSIGN.png"
     },
     {
-      "uri": ".../textures/FLAT14_baseColor.png"
+      "uri": "FLAT14.png"
     },
     {
-      "uri": ".../textures/FLAT18_baseColor.png"
+      "uri": "FLAT18.png"
     },
     {
-      "uri": ".../textures/FLAT20_baseColor.png"
+      "uri": "FLAT20.png"
     },
     {
-      "uri": ".../textures/FLAT23_baseColor.png"
+      "uri": "FLAT23.png"
     },
     {
-      "uri": ".../textures/FLAT5_5_baseColor.png"
+      "uri": "FLAT5_5.png"
     },
     {
-      "uri": ".../textures/FLOOR1_1_baseColor.png"
+      "uri": "FLOOR1_1.png"
     },
     {
-      "uri": ".../textures/FLOOR4_8_baseColor.png"
+      "uri": "FLOOR4_8.png"
     },
     {
-      "uri": ".../textures/FLOOR5_1_baseColor.png"
+      "uri": "FLOOR5_1.png"
     },
     {
-      "uri": ".../textures/FLOOR5_2_baseColor.png"
+      "uri": "FLOOR5_2.png"
     },
     {
-      "uri": ".../textures/FLOOR6_2_baseColor.png"
+      "uri": "FLOOR6_2.png"
     },
     {
-      "uri": ".../textures/FLOOR7_1_baseColor.png"
+      "uri": "FLOOR7_1.png"
     },
     {
-      "uri": ".../textures/FLOOR7_2_baseColor.png"
+      "uri": "FLOOR7_2.png"
     },
     {
-      "uri": ".../textures/F_SKY1_baseColor.png"
+      "uri": "F_SKY1.png"
     },
     {
-      "uri": ".../textures/LITE3_baseColor.png"
+      "uri": "LITE3.png"
     },
     {
-      "uri": ".../textures/NUKAGE3_baseColor.png"
+      "uri": "NUKAGE3.png"
     },
     {
-      "uri": ".../textures/NUKE24_baseColor.png"
+      "uri": "NUKE24.png"
     },
     {
-      "uri": ".../textures/PLANET1_baseColor.png"
+      "uri": "PLANET1.png"
     },
     {
-      "uri": ".../textures/SLADWALL_baseColor.png"
+      "uri": "SLADWALL.png"
     },
     {
-      "uri": ".../textures/STARG3_baseColor.png"
+      "uri": "STARG3.png"
     },
     {
-      "uri": ".../textures/STARGR1_baseColor.png"
+      "uri": "STARGR1.png"
     },
     {
-      "uri": ".../textures/STARTAN1_baseColor.png"
+      "uri": "STARTAN1.png"
     },
     {
-      "uri": ".../textures/STARTAN3_baseColor.png"
+      "uri": "STARTAN3.png"
     },
     {
-      "uri": ".../textures/STEP1_baseColor.png"
+      "uri": "STEP1.png"
     },
     {
-      "uri": ".../textures/STEP2_baseColor.png"
+      "uri": "STEP2.png"
     },
     {
-      "uri": ".../textures/STEP6_baseColor.png"
+      "uri": "STEP6.png"
     },
     {
-      "uri": ".../textures/SUPPORT2_baseColor.png"
+      "uri": "SUPPORT2.png"
     },
     {
-      "uri": ".../textures/SW1COMP_baseColor.png"
+      "uri": "SW1COMP.png"
     },
     {
-      "uri": ".../textures/SW1STRTN_baseColor.png"
+      "uri": "SW1STRTN.png"
     },
     {
-      "uri": ".../textures/TEKWALL1_baseColor.png"
+      "uri": "TEKWALL1.png"
     },
     {
-      "uri": ".../textures/TEKWALL4_baseColor.png"
+      "uri": "TEKWALL4.png"
     },
     {
-      "uri": ".../textures/TLITE6_1_baseColor.png"
+      "uri": "TLITE6_1.png"
     },
     {
-      "uri": ".../textures/TLITE6_4_baseColor.png"
+      "uri": "TLITE6_4.png"
     },
     {
-      "uri": ".../textures/TLITE6_5_baseColor.png"
+      "uri": "TLITE6_5.png"
     },
     {
-      "uri": ".../textures/TLITE6_6_baseColor.png"
+      "uri": "TLITE6_6.png"
     }
   ],
   "materials": [

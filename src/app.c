@@ -16,12 +16,21 @@ void app_init(_app *p_app) {
 		"src/objects/viking_room.obj",
 	};
 
+	char* gltf_paths[] = {
+		"src/objects/doom_E1M1.gltf",
+	};
+
 	p_app->config.object_files_count = sizeof(object_paths) / sizeof(object_paths[0]);
 	p_app->config.object_paths = malloc(sizeof(char*) * p_app->config.object_files_count);
 	for (u32 i = 0; i < p_app->config.object_files_count; i++) {
 		p_app->config.object_paths[i] = object_paths[i];
 	}
 
+	p_app->config.gltf_files_count = sizeof(gltf_paths) / sizeof(gltf_paths[0]);
+	p_app->config.gltf_paths = malloc(sizeof(char*) * p_app->config.gltf_files_count);
+	for (u32 i = 0; i < p_app->config.gltf_files_count; i++) {
+		p_app->config.gltf_paths[i] = gltf_paths[i];
+	}
 
 	glm_vec3_copy((vec3){0.0f, 2.0f, 0.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);

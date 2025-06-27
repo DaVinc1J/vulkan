@@ -1,4 +1,43 @@
 #include "headers/object.h"
+#include "headers/atlas.h"
+
+void load_gltf(_app *p_app) {
+	u32 file_count = p_app->config.gltf_files_count;
+	p_app->obj.data = malloc(sizeof(cgltf_data*) * file_count);
+
+	for (u32 i = 0; i < file_count; i++) {
+		cgltf_options options = {0};
+		cgltf_parse_file(&options, p_app->config.gltf_paths[i], &p_app->obj.data[i]);
+		cgltf_load_buffers(&options, p_app->obj.data[i], p_app->config.gltf_paths[i]);
+
+		_packer packer = {512, NULL, 0, NULL, 0};
+		_textures textures = {p_app->obj.data[i]->textures_count, NULL};
+
+		textures.entries = malloc(sizeof(_texture_entry) * textures.count);
+
+		for (u32 j = 0; j < textures.count; j++) {
+			char *uri = p_app->obj.data[i]->textures[j].image->uri;
+
+			size_t path_len = strlen("src/textures/") + strlen(uri) + 1;
+			char *full_path = malloc(path_len);
+			snprintf(full_path, path_len, "src/textures/%s", uri);
+
+			int tex_w, tex_h;
+			textures.entries[j].pixels = stbi_load(full_path, &tex_w, &tex_h, NULL, STBI_rgb_alpha);
+			textures.entries[j].w = (u16)tex_w;
+			textures.entries[j].h = (u16)tex_h;
+			textures.entries[j].index = j;
+		}
+
+		pack_atlas(&packer, &textures);
+		u16 *remap = build_remap_table(&textures);
+		generate_atlas("atlas.png", &packer, &textures, remap);
+
+		free(packer.divisions);
+		free(packer.textures);
+		free(textures.entries);
+	}
+}
 
 void read_obj_file(_app *p_app) {
 	u32 file_count = p_app->config.object_files_count;
@@ -6,11 +45,6 @@ void read_obj_file(_app *p_app) {
 
 	p_app->obj.object_count = 0;
 	p_app->obj.texture_count = 0;
-
-	//memset(&p_app->obj.options, 0, sizeof(cgltf_options));
-	//p_app->obj.data = NULL;
-
-	//cgltf_result result = cgltf_parse_file(&p_app->obj.options, "src/objects/doom_E1M1.gltf", &p_app->obj.data);
 
 	for (u32 i = 0; i < file_count; i++) {
 
