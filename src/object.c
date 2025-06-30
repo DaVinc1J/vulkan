@@ -2,56 +2,78 @@
 #include "headers/atlas.h"
 
 void load_gltf(_app *p_app) {
-	u32 file_count = p_app->config.gltf.file_count;
+	u32 file_count = p_app->tex.gltf.file_count;
 	p_app->obj.data = malloc(sizeof(cgltf_data*) * file_count);
 
 	for (u32 i = 0; i < file_count; i++) {
-
-		const char *dir = p_app->config.gltf.file_dir;
-		const char *file = p_app->config.gltf.file_names[i];
-
+		const char *dir = p_app->config.dir.objects;
+		const char *file = p_app->tex.gltf.file_names[i];
 		size_t len = strlen(dir) + strlen(file) + 1;
 		char *path = malloc(len);
-
 		strcpy(path, dir);
-		strcat(path, file);	
+		strcat(path, file);
 
 		cgltf_options options = {0};
+		cgltf_parse_file(&options, path, &p_app->obj.data[i]);
+		cgltf_load_buffers(&options, p_app->obj.data[i], path);
+		free(path);
 
-		cgltf_parse_file(&options, p_app->config.gltf_paths[i], &p_app->obj.data[i]);
-		cgltf_load_buffers(&options, p_app->obj.data[i], p_app->config.gltf_paths[i]);
+		u16 count = p_app->obj.data[i]->textures_count;
+		_packer packer;
+		packer.scale = 1024;
+		packer.max_scale = 16384;
+		packer.flags = PACKER_FLAG_NONE;
+		//packer.flags = PACKER_FLAG_ALWAYS_REGENERATE;
+		_infos infos;
+		infos.count = count;
+		u16 *remap;
+		_texture *textures = malloc(sizeof(_texture) * count);
+		init_atlas(&packer, &infos, &remap);
 
-		_packer packer = {512, NULL, 0, NULL, 0};
-		_textures textures = {p_app->obj.data[i]->textures_count, NULL};
+		for (u32 j = 0; j < infos.count; j++) {
+			const char *directory = p_app->config.dir.textures;
+			const char *texture_file = p_app->obj.data[i]->textures[j].image->uri;
 
-		textures.entries = malloc(sizeof(_texture_entry) * textures.count);
+			size_t path_length = strlen(directory) + strlen(texture_file) + 1;
+			char *texture_path = malloc(path_length);
+			strcpy(texture_path, directory);
+			strcat(texture_path, texture_file);
 
-		for (u32 j = 0; j < textures.count; j++) {
-			char *uri = p_app->obj.data[i]->textures[j].image->uri;
+			int tex_w, tex_h, channels;
+			infos.entries[j].pixels = stbi_load(texture_path, &tex_w, &tex_h, &channels, STBI_rgb_alpha);
+			free(texture_path);
 
-			size_t path_len = strlen("src/textures/") + strlen(uri) + 1;
-			char *full_path = malloc(path_len);
-			snprintf(full_path, path_len, "src/textures/%s", uri);
-
-			int tex_w, tex_h;
-			textures.entries[j].pixels = stbi_load(full_path, &tex_w, &tex_h, NULL, STBI_rgb_alpha);
-			textures.entries[j].w = (u16)tex_w;
-			textures.entries[j].h = (u16)tex_h;
-			textures.entries[j].index = j;
+			infos.entries[j].w = (u16)tex_w;
+			infos.entries[j].h = (u16)tex_h;
+			infos.entries[j].index = j;
 		}
 
-		pack_atlas(&packer, &textures);
-		u16 *remap = build_remap_table(&textures);
-		generate_atlas("atlas.png", &packer, &textures, remap);
+		pack_atlas(&packer, &infos, &textures, remap);
 
-		free(packer.divisions);
-		free(packer.textures);
-		free(textures.entries);
+		char atlas_file[32];
+		snprintf(atlas_file, sizeof(atlas_file), "atlas_%u.png", p_app->tex.gltf.atlas_count);
+		p_app->tex.gltf.atlas_names = realloc(p_app->tex.gltf.atlas_names, 
+																				sizeof(char *) * (p_app->tex.gltf.atlas_count + 1));
+		p_app->tex.gltf.atlas_names[p_app->tex.gltf.atlas_count] = strdup(atlas_file);
+		const char *atlas_dir = p_app->config.dir.atlases;
+		size_t atlas_len = strlen(atlas_dir) + strlen(atlas_file) + 1;
+		char *atlas_path = malloc(atlas_len);
+		strcpy(atlas_path, atlas_dir);
+		strcat(atlas_path, atlas_file);
+
+		generate_atlas(atlas_path, &packer, &infos, textures, remap);
+		//print_atlas(&packer, &infos, textures, remap);
+		//generate_debug_atlas("debug_atlas.png", &packer, &infos, textures);
+		p_app->tex.gltf.atlas_count++;
+
+		cleanup_atlas(&packer, &infos, remap);
+		free(textures);
+		textures = NULL;
 	}
 }
 
 void read_obj_file(_app *p_app) {
-	u32 file_count = p_app->config.object_files_count;
+	u32 file_count = p_app->tex.object.file_count;
 	_app_objects *fillers = calloc(file_count, sizeof(_app_objects));
 
 	p_app->obj.object_count = 0;
@@ -59,7 +81,18 @@ void read_obj_file(_app *p_app) {
 
 	for (u32 i = 0; i < file_count; i++) {
 
-		fillers[i].mesh = fast_obj_read(p_app->config.object_paths[i]);
+		const char *dir = p_app->config.dir.objects;
+		const char *file = p_app->tex.object.file_names[i];
+
+		size_t len = strlen(dir) + strlen(file) + 1;
+		char *path = malloc(len);
+
+		strcpy(path, dir);
+		strcat(path, file);	
+
+		fillers[i].mesh = fast_obj_read(path);
+		free(path);
+
 		u32 oc = fillers[i].mesh->object_count;
 
 		fillers[i].vertices = malloc(oc * sizeof(_vertex*));

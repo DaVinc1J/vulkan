@@ -14,7 +14,6 @@
 #include "headers/image.h"
 #include "headers/descriptors.h"
 #include "headers/loop.h"
-//#include "headers/atlas.h"
 
 void vulkan_init(_app *p_app);
 void clean(_app *p_app);
@@ -29,14 +28,12 @@ u32 clamp(u32 n, u32 min, u32 max) {
 }
 
 int main() {
-  _app *p_app = malloc(sizeof(_app));
-  memset(p_app, 0, sizeof(_app));
-	app_init(p_app);
-	window_init(p_app);
-	vulkan_init(p_app);
-	main_loop(p_app);
-	clean(p_app);
-	free(p_app);
+  _app app = {0};
+	app_init(&app);
+	window_init(&app);
+	vulkan_init(&app);
+	main_loop(&app);
+	clean(&app);
 }
 
 void vulkan_init(_app *p_app) {

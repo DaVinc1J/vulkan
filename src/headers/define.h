@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <assert.h>
+#include <unistd.h>
 #include <time.h>
 
 #define GLFW_INCLUDE_VULKAN
@@ -64,6 +65,11 @@ typedef enum _texture_flags {
 	TEXTURE_FLAG_IS_ROTATED = 1 << 1,
 } _texture_flags;
 
+typedef enum _packer_flags {
+	PACKER_FLAG_NONE = 0,
+	PACKER_FLAG_ALWAYS_REGENERATE = 1 << 0,
+} _packer_flags;
+
 typedef struct _texture {
 	u16 index;
 	u16 x;
@@ -73,24 +79,24 @@ typedef struct _texture {
 	u8 flags;
 } _texture;
 
-typedef struct _texture_entry {
+typedef struct _entry {
 	u16 w;
 	u16 h;
 	u16 index;
 	stbi_uc *pixels;
-} _texture_entry;
+} _entry;
 
-typedef struct _textures {
+typedef struct _infos {
 	u16 count;
-	_texture_entry *entries;
-} _textures;
+	_entry *entries;
+} _infos;
 
 typedef struct _packer {
 	u16 scale;
+	u16 max_scale;
+	u16 flags;
 	_division *divisions;
 	u16 division_count;
-	_texture *textures;
-	u16 texture_count;
 } _packer;
 
 typedef struct _vertex {
@@ -153,12 +159,16 @@ typedef struct _swapchain_support {
 typedef struct _file_info {
 	char **file_names;
 	char **atlas_names;
-	char *file_dir;
-	char *atlas_dir;
 	u32 atlas_count;
 	u32 file_count;
 	u32 *file_to_atlas_map;
 } _file_info;
+
+typedef struct _directory {
+	char *objects;
+	char *atlases;
+	char *textures;
+} _directory;
 
 typedef struct _app_window {
 	GLFWwindow* window;
@@ -247,6 +257,8 @@ typedef struct _app_texture {
 	VkImageView *image_views;
 	u32 *has_alpha;
 	VkSampler sampler;
+	_file_info gltf;
+	_file_info object;
 } _app_texture;
 
 typedef struct _app_depth_resources {
@@ -261,19 +273,18 @@ typedef struct _app_colour {
 	VkImageView image_view;
 } _app_colour;
 
+typedef struct _app_shader {
+	char *mesh_vert;
+	char *mesh_frag;
+	char *billboard_vert;
+	char *billboard_frag;
+} _app_shader;
+
 typedef struct _app_config {
 	char *win_title;
 	u32 win_width;
 	u32 win_height;
-	char *mesh_vert_shader_path;
-	char *mesh_frag_shader_path;
-	char *billboard_vert_shader_path;
-	char *billboard_frag_shader_path;
-	char **object_paths;
-	char **gltf_paths;
-	u32 gltf_files_count;
-	u32 object_files_count;
-	_file_info gltf;
+	_directory dir;
 } _app_config;
 
 typedef struct _app_objects {
@@ -344,6 +355,7 @@ typedef struct _app {
 	_app_mesh mesh;
 	_app_billboard billboard;
 	_app_objects obj;
+	_app_shader shader;
 	_app_view view;
 	_app_colour colour;
 	_app_lighting lighting;

@@ -7,45 +7,35 @@ void app_init(_app *p_app) {
 
 	p_app->sync.frame_index = 0;
 
-	p_app->config.mesh_vert_shader_path = "src/shaders/mesh.vert.spv";
-	p_app->config.mesh_frag_shader_path = "src/shaders/mesh.frag.spv";
-	p_app->config.billboard_vert_shader_path = "src/shaders/billboard.vert.spv";
-	p_app->config.billboard_frag_shader_path = "src/shaders/billboard.frag.spv";
+	p_app->shader.mesh_vert = "src/shaders/mesh.vert.spv";
+	p_app->shader.mesh_frag = "src/shaders/mesh.frag.spv";
+	p_app->shader.billboard_vert = "src/shaders/billboard.vert.spv";
+	p_app->shader.billboard_frag = "src/shaders/billboard.frag.spv";
 
-	char* object_paths[] = {
-		"src/objects/viking_room.obj",
+	char *object_files[] = {
+		"viking_room.obj"
 	};
 
-	char* gltf_paths[] = {
-		"src/objects/doom_E1M1.gltf",
-	};
-
-	p_app->config.object_files_count = sizeof(object_paths) / sizeof(object_paths[0]);
-	p_app->config.object_paths = malloc(sizeof(char*) * p_app->config.object_files_count);
-	for (u32 i = 0; i < p_app->config.object_files_count; i++) {
-		p_app->config.object_paths[i] = object_paths[i];
-	}
-
-	p_app->config.gltf_files_count = sizeof(gltf_paths) / sizeof(gltf_paths[0]);
-	p_app->config.gltf_paths = malloc(sizeof(char*) * p_app->config.gltf_files_count);
-	for (u32 i = 0; i < p_app->config.gltf_files_count; i++) {
-		p_app->config.gltf_paths[i] = gltf_paths[i];
-	}
-
-	char *file_path = "src/objects/";
-	char *atlas_path = "src/atlases/";
 	char *gltf_files[] = {
 		"doom_E1M1.gltf"
 	};
 
-	p_app->config.gltf.file_count = sizeof(gltf_files) / sizeof(gltf_files[0]);
-	p_app->config.gltf.file_names = malloc(sizeof(char *) * p_app->config.gltf.file_count);
-	for (u32 i = 0; i < p_app->config.gltf.file_count; i++) {
-		p_app->config.gltf.file_names[i] = strdup(gltf_files[i]);
+	p_app->tex.gltf.atlas_count = 0;
+	p_app->tex.gltf.file_count = sizeof(gltf_files) / sizeof(gltf_files[0]);
+	p_app->tex.gltf.file_names = malloc(sizeof(char *) * p_app->tex.gltf.file_count);
+	for (u32 i = 0; i < p_app->tex.gltf.file_count; i++) {
+		p_app->tex.gltf.file_names[i] = strdup(gltf_files[i]);
 	}
-	p_app->config.gltf.file_dir = strdup(file_path);
-	p_app->config.gltf.atlas_dir = strdup(atlas_path);
 
+	p_app->tex.object.file_count = sizeof(object_files) / sizeof(object_files[0]);
+	p_app->tex.object.file_names = malloc(sizeof(char *) * p_app->tex.object.file_count);
+	for (u32 i = 0; i < p_app->tex.object.file_count; i++) {
+		p_app->tex.object.file_names[i] = strdup(object_files[i]);
+	}
+
+	p_app->config.dir.objects = "src/objects/";
+	p_app->config.dir.atlases = "src/atlases/";
+	p_app->config.dir.textures = "src/textures/";
 
 	glm_vec3_copy((vec3){0.0f, 2.0f, 0.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);

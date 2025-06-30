@@ -42,10 +42,10 @@ void create_graphics_pipelines(_app *p_app) {
 	size_t billboard_vert_shader_code_size;
 	size_t billboard_frag_shader_code_size;
 
-	const char* mesh_vert_shader_code = read_file(p_app, p_app->config.mesh_vert_shader_path, &mesh_vert_shader_code_size);
-	const char* mesh_frag_shader_code = read_file(p_app, p_app->config.mesh_frag_shader_path, &mesh_frag_shader_code_size);
-	const char* billboard_vert_shader_code = read_file(p_app, p_app->config.billboard_vert_shader_path, &billboard_vert_shader_code_size);
-	const char* billboard_frag_shader_code = read_file(p_app, p_app->config.billboard_frag_shader_path, &billboard_frag_shader_code_size);
+	const char* mesh_vert_shader_code = read_file(p_app, p_app->shader.mesh_vert, &mesh_vert_shader_code_size);
+	const char* mesh_frag_shader_code = read_file(p_app, p_app->shader.mesh_frag, &mesh_frag_shader_code_size);
+	const char* billboard_vert_shader_code = read_file(p_app, p_app->shader.billboard_vert, &billboard_vert_shader_code_size);
+	const char* billboard_frag_shader_code = read_file(p_app, p_app->shader.billboard_frag, &billboard_frag_shader_code_size);
 
 	VkShaderModule mesh_vert_shader_module = create_shader_module(p_app, mesh_vert_shader_code, mesh_vert_shader_code_size); 
 	VkShaderModule mesh_frag_shader_module = create_shader_module(p_app, mesh_frag_shader_code, mesh_frag_shader_code_size);
