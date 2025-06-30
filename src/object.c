@@ -20,10 +20,9 @@ void load_gltf(_app *p_app) {
 
 		u16 count = p_app->obj.data[i]->textures_count;
 		_packer packer;
-		packer.scale = 1024;
+		packer.scale = 512;
 		packer.max_scale = 16384;
 		packer.flags = PACKER_FLAG_NONE;
-		//packer.flags = PACKER_FLAG_ALWAYS_REGENERATE;
 		_infos infos;
 		infos.count = count;
 		u16 *remap;

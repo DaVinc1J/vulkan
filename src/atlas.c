@@ -52,7 +52,10 @@ void generate_debug_atlas(const char *filename, _packer *packer, _infos *infos, 
 				u32 dx = t->x + x;
 				u32 dy = t->y + y;
 				u8 *p = &atlas[(dy * width + dx) * 4];
-				p[0] = r; p[1] = g; p[2] = b; p[3] = 255;
+				p[0] = r; 
+				p[1] = g; 
+				p[2] = b; 
+				p[3] = 255;
 			}
 		}
 
@@ -60,6 +63,35 @@ void generate_debug_atlas(const char *filename, _packer *packer, _infos *infos, 
 		snprintf(digits, sizeof(digits), "%u", i);
 		for (int d = 0; digits[d]; d++) {
 			draw_digit(atlas, width, height, t->x + d * 4, t->y, digits[d], 0xFFFFFF);
+		}
+	}
+
+	for (u16 i = 0; i < packer->division_count; i++) {
+		_division *div = &packer->divisions[i];
+		
+		for (u32 y = 0; y < div->h; y++) {
+			for (u32 x = 0; x < div->w; x++) {
+				u32 dx = div->x + x;
+				u32 dy = div->y + y;
+				u8 *p = &atlas[(dy * width + dx) * 4];
+				if (x == div->w || x == 0 || y == div->h || y == 0) {
+					p[0] = 0;
+					p[1] = 0;
+					p[2] = 0;
+					p[3] = 255;
+				} else {
+					p[0] = 128;
+					p[1] = 128;
+					p[2] = 128;
+					p[3] = 255;
+				}
+			}
+		}
+
+		char digits[6];
+		snprintf(digits, sizeof(digits), "%u", i);
+		for (int d = 0; digits[d]; d++) {
+			draw_digit(atlas, width, height, div->x + d * 4, div->y, digits[d], 0xFFFFFF);
 		}
 	}
 
@@ -256,6 +288,17 @@ void resize_packer(_packer *packer) {
 	packer->divisions[packer->division_count++] = bottom_div;
 	packer->divisions[packer->division_count++] = right_div;
 	packer->scale = new_scale;
+
+	if (packer->division_count > 1) {
+		for (u16 first = 0; first < packer->division_count - 1; first++) {
+			for (u16 second = first + 1; second < packer->division_count; second++) {
+				if (can_merge(&packer->divisions[first], &packer->divisions[second])) {
+					merge_divisions(packer, first, second);
+				}
+			}
+		}
+	}
+
 }
 
 void init_atlas(_packer *packer, _infos *infos, u16 **remap) {
