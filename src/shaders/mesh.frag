@@ -2,8 +2,8 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(location = 0) in vec3 frag_pos;
-layout(location = 1) in vec3 frag_norm;
-layout(location = 2) in vec2 frag_uv;
+layout(location = 1) in vec2 frag_tex;
+layout(location = 2) in vec3 frag_norm;
 layout(location = 3) flat in int frag_tex_index;
 
 layout(location = 0) out vec4 out_color;
@@ -37,7 +37,7 @@ void main() {
         diffuse_light += intensity * cos_ang_incidence;
     }
 
-    vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], frag_uv);
+    vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], frag_tex);
     vec3 colour = diffuse_light * tex_colour.rgb;
 
     out_color = vec4(colour, tex_colour.a);

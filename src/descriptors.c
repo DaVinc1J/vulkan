@@ -12,7 +12,7 @@ void create_descriptor_set_layout(_app *p_app) {
 
 	VkDescriptorSetLayoutBinding sampler_layout_binding = {
 		.binding = 1,
-		.descriptorCount = p_app->obj.texture_count,
+		.descriptorCount = p_app->tex.atlas.count,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.pImmutableSamplers = NULL,
 		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -42,7 +42,7 @@ void create_descriptor_set_layout(_app *p_app) {
 void create_descriptor_pool(_app *p_app) {
 	VkDescriptorPoolSize pool_sizes[2] = {
 		{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_FRAMES_IN_FLIGHT },
-		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * p_app->obj.texture_count }
+		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * p_app->tex.atlas.count }
 	};
 
 	VkDescriptorPoolCreateInfo pool_create_info = {
@@ -94,7 +94,7 @@ void create_descriptor_sets(_app *p_app) {
 		};
 
 		u32 valid_tex_count = 0;
-		for (u32 j = 0; j < p_app->obj.texture_count; j++) {
+		for (u32 j = 0; j < p_app->tex.atlas.count; j++) {
 			if (p_app->tex.image_views[j] != VK_NULL_HANDLE) {
 				valid_tex_count++;
 			}
@@ -102,7 +102,7 @@ void create_descriptor_sets(_app *p_app) {
 
 		VkDescriptorImageInfo *image_infos = malloc(sizeof(VkDescriptorImageInfo) * valid_tex_count);
 		u32 tex_i = 0;
-		for (u32 j = 0; j < p_app->obj.texture_count; j++) {
+		for (u32 j = 0; j < p_app->tex.atlas.count; j++) {
 			if (p_app->tex.image_views[j] == VK_NULL_HANDLE) continue;
 			image_infos[tex_i++] = (VkDescriptorImageInfo){
 				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,

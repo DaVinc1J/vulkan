@@ -266,6 +266,11 @@ void generate_atlas(const char *filename, _packer *packer, _infos *infos, _textu
 				u32 dst_y = tex->y + y;
 				u32 dst_idx = (dst_y * width + dst_x) * channels;
 				u32 src_idx = (y * tex->w + x) * channels;
+
+				if (entry->pixels[src_idx + 3] < 255) {
+    			tex->flags |= TEXTURE_FLAG_HAS_ALPHA;
+				}
+
 				memcpy(&atlas[dst_idx], &entry->pixels[src_idx], channels);
 			}
 		}

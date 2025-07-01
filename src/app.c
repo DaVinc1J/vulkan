@@ -6,31 +6,24 @@ void app_init(_app *p_app) {
 	p_app->config.win_height = 800;
 
 	p_app->sync.frame_index = 0;
+	p_app->atlas.scale = 1024;
+	p_app->atlas.max_scale = 16384;
+	p_app->atlas.flags = PACKER_FLAG_ALWAYS_REGENERATE;
 
 	p_app->shader.mesh_vert = "src/shaders/mesh.vert.spv";
 	p_app->shader.mesh_frag = "src/shaders/mesh.frag.spv";
 	p_app->shader.billboard_vert = "src/shaders/billboard.vert.spv";
 	p_app->shader.billboard_frag = "src/shaders/billboard.frag.spv";
 
-	char *object_files[] = {
-		"viking_room.obj"
-	};
-
 	char *gltf_files[] = {
 		"doom_E1M1.gltf"
 	};
 
-	p_app->tex.gltf.atlas_count = 0;
-	p_app->tex.gltf.file_count = sizeof(gltf_files) / sizeof(gltf_files[0]);
-	p_app->tex.gltf.file_names = malloc(sizeof(char *) * p_app->tex.gltf.file_count);
-	for (u32 i = 0; i < p_app->tex.gltf.file_count; i++) {
-		p_app->tex.gltf.file_names[i] = strdup(gltf_files[i]);
-	}
-
-	p_app->tex.object.file_count = sizeof(object_files) / sizeof(object_files[0]);
-	p_app->tex.object.file_names = malloc(sizeof(char *) * p_app->tex.object.file_count);
-	for (u32 i = 0; i < p_app->tex.object.file_count; i++) {
-		p_app->tex.object.file_names[i] = strdup(object_files[i]);
+	p_app->tex.atlas.count = 0;
+	p_app->tex.file.count = sizeof(gltf_files) / sizeof(gltf_files[0]);
+	p_app->tex.file.names = malloc(sizeof(char *) * p_app->tex.file.count);
+	for (u32 i = 0; i < p_app->tex.file.count; i++) {
+		p_app->tex.file.names[i] = strdup(gltf_files[i]);
 	}
 
 	p_app->config.dir.objects = "src/objects/";

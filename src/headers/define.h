@@ -35,6 +35,7 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 
+#define MAX_ATLAS_FILES 128
 #define MAX_OBJECT_FILES 16
 #define MAX_LIGHTS 16
 extern const u32 MAX_FRAMES_IN_FLIGHT;
@@ -157,11 +158,8 @@ typedef struct _swapchain_support {
 } _swapchain_support;
 
 typedef struct _file_info {
-	char **file_names;
-	char **atlas_names;
-	u32 atlas_count;
-	u32 file_count;
-	u32 *file_to_atlas_map;
+	char **names;
+	u32 count;
 } _file_info;
 
 typedef struct _directory {
@@ -230,6 +228,10 @@ typedef struct _app_mesh {
 	VkBuffer* index_buffers;
 	VmaAllocation* vertex_allocations;
 	VmaAllocation* index_allocations;
+	u32* vertex_count;
+	u32* index_count;
+	vec3* centroids;
+	u8* is_transparent;
 } _app_mesh;
 
 typedef struct _app_billboard {
@@ -252,13 +254,11 @@ typedef struct _app_descriptors {
 typedef struct _app_texture {
 	u32 *mip_levels;
 	VkImage *images;
-	VkImage *atlases;
 	VmaAllocation *image_allocations;
 	VkImageView *image_views;
-	u32 *has_alpha;
 	VkSampler sampler;
-	_file_info gltf;
-	_file_info object;
+	_file_info file;
+	_file_info atlas;
 } _app_texture;
 
 typedef struct _app_depth_resources {
@@ -288,23 +288,10 @@ typedef struct _app_config {
 } _app_config;
 
 typedef struct _app_objects {
-	_vertex** vertices;
-	u32** indices;
-	u32* vertices_count;
-	u32* indices_count;
-	u32** face_indices;
-	u32** material_indices;
-	u32** group_indices;
-	u32** object_indices;
-	u32** texture_indices;
-	fastObjTexture *textures;
-	u32 object_count;
-	u32 texture_count;
-	fastObjMesh *mesh;
 	_billboard *lights;
 	u32 light_count;
 	cgltf_data **data;
-	cgltf_options options;
+	u32 primitive_count;
 } _app_objects;
 
 typedef struct _app_view {
@@ -338,6 +325,14 @@ typedef struct _app_performance {
 	int frame_count;
 } _app_performance;
 
+typedef struct _app_atlas {
+	_texture *textures;
+	u32 texture_count;
+	u32 scale;
+	u32 max_scale;
+	u32 flags;
+} _app_atlas;
+
 typedef struct _app {
 	_app_window win;
 	_app_instance inst;
@@ -360,6 +355,7 @@ typedef struct _app {
 	_app_colour colour;
 	_app_lighting lighting;
 	_app_performance perf;
+	_app_atlas atlas;
 } _app;
 
 #endif

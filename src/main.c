@@ -37,7 +37,6 @@ int main() {
 }
 
 void vulkan_init(_app *p_app) {
-	read_obj_file(p_app);
 	load_gltf(p_app);
 	create_instance(p_app);
 	setup_debug_messenger(p_app);
@@ -79,49 +78,13 @@ void main_loop(_app *p_app) {
 }
 
 void clean(_app *p_app) {
-	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
-		free(p_app->obj.vertices[o]);
-		free(p_app->obj.indices[o]);
-		free(p_app->obj.face_indices[o]);
-		free(p_app->obj.material_indices[o]);
-		free(p_app->obj.group_indices[o]);
-		free(p_app->obj.object_indices[o]);
-		free(p_app->obj.texture_indices[o]);
-	}
-	free(p_app->obj.vertices);
-	free(p_app->obj.indices);
-	free(p_app->obj.face_indices);
-	free(p_app->obj.material_indices);
-	free(p_app->obj.group_indices);
-	free(p_app->obj.object_indices);
-	free(p_app->obj.texture_indices);
-	free(p_app->obj.vertices_count);
-	free(p_app->obj.indices_count);
-
-	p_app->obj.vertices = NULL;
-	p_app->obj.indices = NULL;
-	p_app->obj.face_indices = NULL;
-	p_app->obj.material_indices = NULL;
-	p_app->obj.group_indices = NULL;
-	p_app->obj.object_indices = NULL;
-	p_app->obj.texture_indices = NULL;
-	p_app->obj.vertices_count = NULL;
-	p_app->obj.indices_count = NULL;
-
-	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
-		free(p_app->obj.textures[i].path);
-		free(p_app->obj.textures[i].name);
-	}
-	free(p_app->obj.textures);
-	p_app->obj.textures = NULL;
-
 	vkDestroyImageView(p_app->device.logical, p_app->depth.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 	vkDestroyImageView(p_app->device.logical, p_app->colour.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->colour.image, p_app->colour.image_allocation);
 
 	vkDestroySampler(p_app->device.logical, p_app->tex.sampler, NULL);
-	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+	for (u32 i = 0; i < p_app->tex.atlas.count; i++) {
 		if (p_app->tex.image_views[i]) {
 			vkDestroyImageView(p_app->device.logical, p_app->tex.image_views[i], NULL);
 		}
@@ -129,50 +92,38 @@ void clean(_app *p_app) {
 			vmaDestroyImage(p_app->mem.alloc, p_app->tex.images[i], p_app->tex.image_allocations[i]);
 		}
 	}
-	free(p_app->tex.image_views);
-	free(p_app->tex.images);
-	free(p_app->tex.image_allocations);
-	free(p_app->tex.has_alpha);
-	free(p_app->tex.mip_levels);
-	p_app->tex.image_views = NULL;
-	p_app->tex.images = NULL;
-	p_app->tex.image_allocations = NULL;
-	p_app->tex.has_alpha = NULL;
-	p_app->tex.mip_levels = NULL;
+	free(p_app->tex.image_views);           p_app->tex.image_views = NULL;
+	free(p_app->tex.images);                p_app->tex.images = NULL;
+	free(p_app->tex.image_allocations);     p_app->tex.image_allocations = NULL;
+	free(p_app->tex.mip_levels);            p_app->tex.mip_levels = NULL;
 
 	vkDestroyDescriptorPool(p_app->device.logical, p_app->descriptor.pool, NULL);
 	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipeline.descriptor_set_layout, NULL);
-	free(p_app->descriptor.sets);
-	p_app->descriptor.sets = NULL;
+	free(p_app->descriptor.sets);           p_app->descriptor.sets = NULL;
 
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->uniform.buffers[i], p_app->uniform.buffer_allocations[i]);
 	}
-	free(p_app->uniform.buffers);
-	free(p_app->uniform.buffer_allocations);
-	free(p_app->uniform.buffers_mapped);
-	p_app->uniform.buffers = NULL;
-	p_app->uniform.buffer_allocations = NULL;
-	p_app->uniform.buffers_mapped = NULL;
-
+	free(p_app->uniform.buffers);           p_app->uniform.buffers = NULL;
+	free(p_app->uniform.buffer_allocations);p_app->uniform.buffer_allocations = NULL;
+	free(p_app->uniform.buffers_mapped);    p_app->uniform.buffers_mapped = NULL;
 
 	vmaDestroyBuffer(p_app->mem.alloc, p_app->billboard.instance_buffer, p_app->billboard.instance_allocation);
 
-	for (u32 i = 0; i < p_app->obj.object_count; i++) {
+	for (u32 i = 0; i < p_app->obj.primitive_count; i++) {
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.vertex_buffers[i], p_app->mesh.vertex_allocations[i]);
 		vmaDestroyBuffer(p_app->mem.alloc, p_app->mesh.index_buffers[i], p_app->mesh.index_allocations[i]);
 	}
-	free(p_app->mesh.vertex_buffers);
-	free(p_app->mesh.index_buffers);
-	free(p_app->mesh.vertex_allocations);
-	free(p_app->mesh.index_allocations);
-	p_app->mesh.vertex_buffers = NULL;
-	p_app->mesh.index_buffers = NULL;
-	p_app->mesh.vertex_allocations = NULL;
-	p_app->mesh.index_allocations = NULL;
+	free(p_app->mesh.vertex_buffers);       p_app->mesh.vertex_buffers = NULL;
+	free(p_app->mesh.index_buffers);        p_app->mesh.index_buffers = NULL;
+	free(p_app->mesh.vertex_allocations);   p_app->mesh.vertex_allocations = NULL;
+	free(p_app->mesh.index_allocations);    p_app->mesh.index_allocations = NULL;
+	free(p_app->mesh.vertex_count);         p_app->mesh.vertex_count = NULL;
+	free(p_app->mesh.index_count);          p_app->mesh.index_count = NULL;
+	free(p_app->mesh.is_transparent);       p_app->mesh.is_transparent = NULL;
+	free(p_app->mesh.centroids);						p_app->mesh.centroids = NULL;
 
-	free(p_app->cmd.buffers);
-	p_app->cmd.buffers = NULL;
+	free(p_app->cmd.buffers);               p_app->cmd.buffers = NULL;
 
 	for (u32 i = 0; i < p_app->swp.images_count; i++) {
 		vkDestroySemaphore(p_app->device.logical, p_app->sync.image_available_semaphores[i], NULL);
@@ -181,19 +132,15 @@ void clean(_app *p_app) {
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		vkDestroyFence(p_app->device.logical, p_app->sync.in_flight_fences[i], NULL);
 	}
-	free(p_app->sync.image_available_semaphores);
-	free(p_app->sync.render_finished_semaphores);
-	free(p_app->sync.in_flight_fences);
-	p_app->sync.image_available_semaphores = NULL;
-	p_app->sync.render_finished_semaphores = NULL;
-	p_app->sync.in_flight_fences = NULL;
+	free(p_app->sync.image_available_semaphores);  p_app->sync.image_available_semaphores = NULL;
+	free(p_app->sync.render_finished_semaphores);  p_app->sync.render_finished_semaphores = NULL;
+	free(p_app->sync.in_flight_fences);            p_app->sync.in_flight_fences = NULL;
 
 	vkDestroyCommandPool(p_app->device.logical, p_app->cmd.pool, NULL);
 	for (u32 i = 0; i < p_app->swp.images_count; i++) {
 		vkDestroyFramebuffer(p_app->device.logical, p_app->pipeline.swapchain_framebuffers[i], NULL);
 	}
-	free(p_app->pipeline.swapchain_framebuffers);
-	p_app->pipeline.swapchain_framebuffers = NULL;
+	free(p_app->pipeline.swapchain_framebuffers); p_app->pipeline.swapchain_framebuffers = NULL;
 
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.opaque, NULL);
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.transparent, NULL);
@@ -204,9 +151,27 @@ void clean(_app *p_app) {
 	for (u32 i = 0; i < p_app->swp.images_count; i++) {
 		vkDestroyImageView(p_app->device.logical, p_app->swp.image_views[i], NULL);
 	}
-	free(p_app->swp.image_views);
-	p_app->swp.image_views = NULL;
+	free(p_app->swp.image_views);           p_app->swp.image_views = NULL;
 	vkDestroySwapchainKHR(p_app->device.logical, p_app->swp.swapchain, NULL);
+
+	for (u32 i = 0; i < p_app->tex.atlas.count; i++) {
+		cgltf_free(p_app->obj.data[i]);
+	}
+	free(p_app->obj.data);                  p_app->obj.data = NULL;
+
+	free(p_app->obj.lights);                p_app->obj.lights = NULL;
+
+	for (u32 i = 0; i < p_app->tex.file.count; i++) {
+		free(p_app->tex.file.names[i]);
+	}
+	free(p_app->tex.file.names);            p_app->tex.file.names = NULL;
+
+	for (u32 i = 0; i < p_app->tex.atlas.count; i++) {
+		free(p_app->tex.atlas.names[i]);
+	}
+	free(p_app->tex.atlas.names);           p_app->tex.atlas.names = NULL;
+
+	free(p_app->atlas.textures);            p_app->atlas.textures = NULL;
 
 	vmaDestroyAllocator(p_app->mem.alloc);
 	vkDestroyDevice(p_app->device.logical, NULL);
@@ -214,9 +179,9 @@ void clean(_app *p_app) {
 	if (enable_validation_layers) {
 		destroy_debug_utils_messenger_EXT(p_app->inst.instance, p_app->inst.debug_messenger, NULL);
 	}
-
 	vkDestroySurfaceKHR(p_app->inst.instance, p_app->swp.surface, NULL);
 	vkDestroyInstance(p_app->inst.instance, NULL);
+
 	glfwDestroyWindow(p_app->win.window);
 	glfwTerminate();
 }

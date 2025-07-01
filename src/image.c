@@ -140,14 +140,18 @@ void create_mipmaps(_app *p_app, VkImage image, u32 mip_levels, i32 tex_width, i
 }
 
 void create_texture_image(_app *p_app) {
-	p_app->tex.images = malloc(sizeof(VkImage) * p_app->obj.texture_count);
-	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->obj.texture_count);
-	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->obj.texture_count);
-	p_app->tex.has_alpha = calloc(p_app->obj.texture_count, sizeof(u32));
-	p_app->tex.mip_levels = malloc(sizeof(u32) * p_app->obj.texture_count);
+	p_app->tex.images = malloc(sizeof(VkImage) * p_app->tex.atlas.count);
+	p_app->tex.image_allocations = malloc(sizeof(VmaAllocation) * p_app->tex.atlas.count);
+	p_app->tex.image_views = malloc(sizeof(VkImageView) * p_app->tex.atlas.count);
+	p_app->tex.mip_levels = malloc(sizeof(u32) * p_app->tex.atlas.count);
 
-	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
-		const char *path = p_app->obj.textures[i].path;
+	for (u32 i = 0; i < p_app->tex.atlas.count; i++) {
+		const char *dir = p_app->config.dir.atlases;
+		const char *file = p_app->tex.atlas.names[i];
+		size_t len = strlen(dir) + strlen(file) + 1;
+		char *path = malloc(len);
+		strcpy(path, dir);
+		strcat(path, file);
 
 		if (!path || strlen(path) == 0) {
 			p_app->tex.images[i] = VK_NULL_HANDLE;
@@ -166,15 +170,8 @@ void create_texture_image(_app *p_app) {
 			);
 			exit(EXIT_FAILURE);
 		}
+		free(path);
 		p_app->tex.mip_levels[i] = (u32)floor(log2(tex_w > tex_h ? tex_w : tex_h)) + 1;
-
-		u32 pixel_count = (u32)(tex_w * tex_h);
-		for (u32 j = 0; j < pixel_count; j++) {
-			if (pixels[j * 4 + 3] < 255) {
-				p_app->tex.has_alpha[i] = 1;
-				break;
-			}
-		}
 
 		VkDeviceSize image_size = tex_w * tex_h * 4;
 
@@ -209,7 +206,7 @@ void create_texture_image(_app *p_app) {
 }
 
 void create_texture_image_view(_app *p_app) {
-	for (u32 i = 0; i < p_app->obj.texture_count; i++) {
+	for (u32 i = 0; i < p_app->tex.atlas.count; i++) {
 		if (p_app->tex.images[i] != VK_NULL_HANDLE) {
 			create_image_view(p_app, p_app->tex.images[i], &p_app->tex.image_views[i], p_app->tex.mip_levels[i], VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 		}
@@ -221,7 +218,7 @@ void create_texture_sampler(_app *p_app) {
 	vkGetPhysicalDeviceProperties(p_app->device.physical, &properties);
 
 	int max = 0;
-	for (int i = 0; i < p_app->obj.texture_count; i++) {
+	for (int i = 0; i < p_app->tex.atlas.count; i++) {
 		if (p_app->tex.mip_levels[i] > max) {
 			max = p_app->tex.mip_levels[i];
 		}

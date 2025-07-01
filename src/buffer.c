@@ -60,51 +60,130 @@ void create_billboard_buffer(_app *p_app) {
 }
 
 void create_mesh_buffer(_app *p_app) {
-	u32 object_count = p_app->obj.object_count;
+	u32 primitive_count = p_app->obj.primitive_count;
+	p_app->mesh.vertex_buffers = malloc(sizeof(VkBuffer) * primitive_count);
+	p_app->mesh.index_buffers = malloc(sizeof(VkBuffer) * primitive_count);
+	p_app->mesh.vertex_allocations = malloc(sizeof(VmaAllocation) * primitive_count);
+	p_app->mesh.index_allocations = malloc(sizeof(VmaAllocation) * primitive_count);
+	p_app->mesh.vertex_count = malloc(sizeof(u32) * primitive_count);
+	p_app->mesh.index_count = malloc(sizeof(u32) * primitive_count);
+	p_app->mesh.is_transparent = malloc(sizeof(u8) * primitive_count);
+	p_app->mesh.centroids = malloc(sizeof(vec3) * primitive_count);
 
-	p_app->mesh.vertex_buffers = malloc(sizeof(VkBuffer) * object_count);
-	p_app->mesh.index_buffers = malloc(sizeof(VkBuffer) * object_count);
-	p_app->mesh.vertex_allocations = malloc(sizeof(VmaAllocation) * object_count);
-	p_app->mesh.index_allocations = malloc(sizeof(VmaAllocation) * object_count);
+	u32 prim_index = 0;
+	for (u32 f = 0; f < p_app->tex.file.count; f++) {
+		cgltf_data *data = p_app->obj.data[f];
 
-	for (u32 o = 0; o < object_count; ++o) {
-		u32 v_count = p_app->obj.vertices_count[o];
-		u32 i_count = p_app->obj.indices_count[o];
+		for (u32 m = 0; m < data->meshes_count; m++) {
+			cgltf_mesh *mesh = &data->meshes[m];
 
-		VkDeviceSize v_size = sizeof(_vertex) * v_count;
-		VkDeviceSize i_size = sizeof(u32) * i_count;
+			for (u32 p =0; p < mesh->primitives_count; p++, prim_index++) {
+				cgltf_primitive* prim = &mesh->primitives[p];
 
-		VkBuffer staging_vb;
-		VmaAllocation staging_va;
-		create_buffer(p_app, v_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_vb, &staging_va);
-		void* v_data;
-		vmaMapMemory(p_app->mem.alloc, staging_va, &v_data);
-		memcpy(v_data, p_app->obj.vertices[o], v_size);
-		vmaUnmapMemory(p_app->mem.alloc, staging_va);
+				cgltf_accessor* pos_acc = NULL;
+				cgltf_accessor* norm_acc = NULL;
+				cgltf_accessor* tex_acc = NULL;
 
-		create_buffer(p_app, v_size,
-								VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-								VMA_MEMORY_USAGE_GPU_ONLY,
-								&p_app->mesh.vertex_buffers[o], &p_app->mesh.vertex_allocations[o]);
+				for (size_t a = 0; a < prim->attributes_count; ++a) {
+					cgltf_attribute* attr = &prim->attributes[a];
+					if (attr->type == cgltf_attribute_type_position) pos_acc = attr->data;
+					if (attr->type == cgltf_attribute_type_normal) norm_acc = attr->data;
+					if (attr->type == cgltf_attribute_type_texcoord && attr->index == 0) tex_acc = attr->data;
+				}
+				if (!pos_acc) continue;
 
-		copy_buffer(p_app, staging_vb, p_app->mesh.vertex_buffers[o], v_size);
-		vmaDestroyBuffer(p_app->mem.alloc, staging_vb, staging_va);
+				int tex_index = 0;
+				if (prim->material && prim->material->pbr_metallic_roughness.base_color_texture.texture) {
+					cgltf_texture* tex = prim->material->pbr_metallic_roughness.base_color_texture.texture;
+					tex_index = (int)(tex - data->textures);
+				}
+				_texture tex = p_app->atlas.textures[tex_index];
+				p_app->mesh.is_transparent[prim_index] = (tex.flags & TEXTURE_FLAG_HAS_ALPHA) != 0;
 
-		VkBuffer staging_ib;
-		VmaAllocation staging_ia;
-		create_buffer(p_app, i_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_ib, &staging_ia);
-		void* i_data;
-		vmaMapMemory(p_app->mem.alloc, staging_ia, &i_data);
-		memcpy(i_data, p_app->obj.indices[o], i_size);
-		vmaUnmapMemory(p_app->mem.alloc, staging_ia);
+				u32 v_count = (u32)pos_acc->count;
+				u32 i_count = prim->indices ? (u32)prim->indices->count : v_count;
 
-		create_buffer(p_app, i_size,
-								VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-								VMA_MEMORY_USAGE_GPU_ONLY,
-								&p_app->mesh.index_buffers[o], &p_app->mesh.index_allocations[o]);
+				_vertex* vertices = malloc(sizeof(_vertex) * v_count);
+				for (u32 i = 0; i < v_count; ++i) {
+					cgltf_accessor_read_float(pos_acc, i, vertices[i].pos, 3);
+					if (norm_acc) cgltf_accessor_read_float(norm_acc, i, vertices[i].norm, 3);
+					else memset(vertices[i].norm, 0, sizeof(float) * 3);
 
-		copy_buffer(p_app, staging_ib, p_app->mesh.index_buffers[o], i_size);
-		vmaDestroyBuffer(p_app->mem.alloc, staging_ib, staging_ia);
+					if (tex_acc) {
+						float uv[2];
+						cgltf_accessor_read_float(tex_acc, i, uv, 2);
+
+						float scale = (float)p_app->atlas.scale;
+
+						if (tex.flags & TEXTURE_FLAG_IS_ROTATED) {
+							float u = 1.0f - uv[1];
+							float v = uv[0];
+							vertices[i].tex[0] = (u * tex.w / scale) + (float)tex.x / scale;
+							vertices[i].tex[1] = (v * tex.h / scale) + (float)tex.y / scale;
+						} else {
+							vertices[i].tex[0] = (uv[0] * tex.w / scale) + (float)tex.x / scale;
+							vertices[i].tex[1] = (uv[1] * tex.h / scale) + (float)tex.y / scale;
+						}
+					}
+
+					vertices[i].tex_index = 0;
+				}
+
+				u32* indices = malloc(sizeof(u32) * i_count);
+				if (prim->indices) {
+					for (u32 i = 0; i < i_count; ++i) {
+						indices[i] = (u32)cgltf_accessor_read_index(prim->indices, i);
+					}
+				} else {
+					for (u32 i = 0; i < v_count; ++i) indices[i] = i;
+				}
+
+				p_app->mesh.vertex_count[prim_index] = v_count;
+				p_app->mesh.index_count[prim_index] = i_count;
+				vec3 avg = {0};
+				for (u32 v = 0; v < v_count; ++v) {
+					glm_vec3_add(avg, vertices[v].pos, avg);
+				}
+				glm_vec3_scale(avg, 1.0f / v_count, avg);
+				glm_vec3_copy(p_app->mesh.centroids[prim_index], avg);
+
+				VkDeviceSize v_size = sizeof(_vertex) * v_count;
+				VkDeviceSize i_size = sizeof(u32) * i_count;
+
+				VkBuffer staging_vb;
+				VmaAllocation staging_va;
+				create_buffer(p_app, v_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_vb, &staging_va);
+				void* v_data;
+				vmaMapMemory(p_app->mem.alloc, staging_va, &v_data);
+				memcpy(v_data, vertices, v_size);
+				vmaUnmapMemory(p_app->mem.alloc, staging_va);
+
+				create_buffer(p_app, v_size,
+									VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+									VMA_MEMORY_USAGE_GPU_ONLY,
+									&p_app->mesh.vertex_buffers[prim_index], &p_app->mesh.vertex_allocations[prim_index]);
+				copy_buffer(p_app, staging_vb, p_app->mesh.vertex_buffers[prim_index], v_size);
+				vmaDestroyBuffer(p_app->mem.alloc, staging_vb, staging_va);
+
+				VkBuffer staging_ib;
+				VmaAllocation staging_ia;
+				create_buffer(p_app, i_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_ib, &staging_ia);
+				void* i_data;
+				vmaMapMemory(p_app->mem.alloc, staging_ia, &i_data);
+				memcpy(i_data, indices, i_size);
+				vmaUnmapMemory(p_app->mem.alloc, staging_ia);
+
+				create_buffer(p_app, i_size,
+									VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+									VMA_MEMORY_USAGE_GPU_ONLY,
+									&p_app->mesh.index_buffers[prim_index], &p_app->mesh.index_allocations[prim_index]);
+				copy_buffer(p_app, staging_ib, p_app->mesh.index_buffers[prim_index], i_size);
+				vmaDestroyBuffer(p_app->mem.alloc, staging_ib, staging_ia);
+
+				free(vertices);
+				free(indices);
+			}
+		}
 	}
 }
 
@@ -197,21 +276,18 @@ int compare_render_order(const void* a, const void* b) {
 }
 
 void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t image_index) {
-	VkCommandBufferBeginInfo command_buffer_begin_info = {
+	VkCommandBufferBeginInfo begin_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 	};
-
-	if (vkBeginCommandBuffer(command_buffer, &command_buffer_begin_info) != VK_SUCCESS) {
-		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-											 "command buffer => failed to begin record");
+	if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "command buffer => failed to begin record");
 		exit(EXIT_FAILURE);
 	}
 
 	VkClearValue clear_values[2] = {
-		{ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } },
+		{ .color = {{0.0f, 0.0f, 0.0f, 1.0f}} },
 		{ .depthStencil = {1.0f, 0} }
 	};
-
 	VkRenderPassBeginInfo render_pass_info = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = p_app->pipeline.render_pass,
@@ -220,14 +296,13 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		.clearValueCount = 2,
 		.pClearValues = clear_values,
 	};
-
 	vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	VkViewport viewport = {
 		.x = 0.0f, .y = 0.0f,
 		.width = (float)p_app->swp.extent.width,
 		.height = (float)p_app->swp.extent.height,
-		.minDepth = 0.0f, .maxDepth = 1.0f,
+		.minDepth = 0.0f, .maxDepth = 1.0f
 	};
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
@@ -235,8 +310,8 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-												 p_app->pipeline.layout, 0, 1,
-												 &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
+		p_app->pipeline.layout, 0, 1,
+		&p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
 
 	_push_constants pc;
 	glm_mat4_identity(pc.model);
@@ -246,150 +321,98 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	glm_mat4_pick3(pc.model, normal3);
 	glm_mat3_inv(normal3, normal3);
 	glm_mat3_transpose(normal3);
-
 	glm_mat4_identity(pc.normal);
-	for (int i = 0; i < 3; ++i) {
-		for (int j = 0; j < 3; ++j) {
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
 			pc.normal[i][j] = normal3[i][j];
-		}
-	}
 
-	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
-		bool transparent = false;
-		for (u32 k = 0; k < p_app->obj.indices_count[o]; ++k) {
-			u32 tex_idx = p_app->obj.texture_indices[o][k];
-			if (tex_idx != UINT32_MAX && p_app->tex.has_alpha[tex_idx]) {
-				transparent = true;
-				break;
-			}
-		}
-		if (transparent) continue;
+	for (u32 i = 0; i < p_app->obj.primitive_count; ++i) {
+		if (p_app->mesh.is_transparent[i]) continue;
 
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 
 		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
-		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
+		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdPushConstants(
-			command_buffer,
-			p_app->pipeline.layout,
+		vkCmdPushConstants(command_buffer, p_app->pipeline.layout,
 			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-			0,
-			sizeof(_push_constants),
-			&pc
-		);
+			0, sizeof(_push_constants), &pc);
 
-		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
+		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_count[i], 1, 0, 0, 0);
 	}
 
-	_render_order* transparent_draw_order = malloc(sizeof(_render_order) * p_app->obj.object_count);
-	u32 t_count = 0;
+	_render_order* sort_list = malloc(sizeof(_render_order) * p_app->obj.primitive_count);
+	u32 count = 0;
 
-	for (u32 o = 0; o < p_app->obj.object_count; ++o) {
-		bool transparent = false;
-		for (u32 k = 0; k < p_app->obj.indices_count[o]; ++k) {
-			u32 tex_idx = p_app->obj.texture_indices[o][k];
-			if (tex_idx != UINT32_MAX && p_app->tex.has_alpha[tex_idx]) {
-				transparent = true;
-				break;
-			}
-		}
-		if (!transparent) continue;
-
-		vec3 avg_pos = {0};
-		u32 v_count = p_app->obj.vertices_count[o];
-		for (u32 v = 0; v < v_count; ++v) {
-			glm_vec3_add(avg_pos, p_app->obj.vertices[o][v].pos, avg_pos);
-		}
-		glm_vec3_scale(avg_pos, 1.0f / v_count, avg_pos);
+	for (u32 i = 0; i < p_app->obj.primitive_count; ++i) {
+		if (!p_app->mesh.is_transparent[i]) continue;
 
 		vec3 diff;
-		glm_vec3_sub(p_app->view.camera_pos, avg_pos, diff);
+		glm_vec3_sub(p_app->view.camera_pos, p_app->mesh.centroids[i], diff);
 		float dist_sq = glm_vec3_dot(diff, diff);
 
-		transparent_draw_order[t_count++] = (_render_order){ o, dist_sq };
+		sort_list[count++] = (_render_order){ .object_index = i, .distance = dist_sq };
 	}
 
-	qsort(transparent_draw_order, t_count, sizeof(_render_order), compare_render_order);
+	qsort(sort_list, count, sizeof(_render_order), compare_render_order);
 
-	for (u32 i = 0; i < t_count; ++i) {
-		u32 o = transparent_draw_order[i].object_index;
+	for (u32 i = 0; i < count; ++i) {
+		u32 prim = sort_list[i].object_index;
 
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.transparent);
 
 		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[o], &offset);
-		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[o], 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[prim], &offset);
+		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[prim], 0, VK_INDEX_TYPE_UINT32);
 
-
-		vkCmdPushConstants(
-			command_buffer,
-			p_app->pipeline.layout,
+		vkCmdPushConstants(command_buffer, p_app->pipeline.layout,
 			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-			0,
-			sizeof(_push_constants),
-			&pc
-		);
+			0, sizeof(_push_constants), &pc);
 
-		vkCmdDrawIndexed(command_buffer, p_app->obj.indices_count[o], 1, 0, 0, 0);
+		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_count[prim], 1, 0, 0, 0);
 	}
 
-	free(transparent_draw_order);
+	free(sort_list);
 
-
-	u32 light_count = p_app->obj.light_count;
-	if (light_count > 0) {
-
-		_render_order* light_order = malloc(sizeof(_render_order) * light_count);
-		for (u32 i = 0; i < light_count; ++i) {
+	if (p_app->obj.light_count > 0) {
+		_render_order* light_order = malloc(sizeof(_render_order) * p_app->obj.light_count);
+		for (u32 i = 0; i < p_app->obj.light_count; ++i) {
 			vec3 diff;
 			glm_vec3_sub(p_app->view.camera_pos, p_app->obj.lights[i].pos, diff);
-			float dist_sq = glm_vec3_dot(diff, diff);
-			light_order[i] = (_render_order){ i, dist_sq };
+			light_order[i] = (_render_order){ i, glm_vec3_dot(diff, diff) };
 		}
-		qsort(light_order, light_count, sizeof(_render_order), compare_render_order);
+		qsort(light_order, p_app->obj.light_count, sizeof(_render_order), compare_render_order);
 
-		_billboard* sorted_instances = malloc(sizeof(_billboard) * light_count);
-		for (u32 i = 0; i < light_count; ++i) {
-			u32 idx = light_order[i].object_index;
-			_billboard* src = &p_app->obj.lights[idx];
+		_billboard* sorted = malloc(sizeof(_billboard) * p_app->obj.light_count);
+		for (u32 i = 0; i < p_app->obj.light_count; ++i)
+			sorted[i] = p_app->obj.lights[light_order[i].object_index];
 
-			glm_vec4_copy(src->pos,sorted_instances[i].pos);
-			glm_vec4_copy(src->data, sorted_instances[i].data);
-			glm_vec4_copy(src->flags, sorted_instances[i].flags);
-		}
-
-		VkDeviceSize buffer_size = sizeof(_billboard) * light_count;
-
-		VkBuffer staging_buffer;
-		VmaAllocation staging_alloc;
-		create_buffer(p_app, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging_buffer, &staging_alloc);
-
+		VkDeviceSize size = sizeof(_billboard) * p_app->obj.light_count;
+		VkBuffer staging;
+		VmaAllocation alloc;
+		create_buffer(p_app, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, &staging, &alloc);
 		void* data;
-		vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
-		memcpy(data, sorted_instances, buffer_size);
-		vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
+		vmaMapMemory(p_app->mem.alloc, alloc, &data);
+		memcpy(data, sorted, size);
+		vmaUnmapMemory(p_app->mem.alloc, alloc);
 
-		copy_buffer(p_app, staging_buffer, p_app->billboard.instance_buffer, buffer_size);
-		vmaDestroyBuffer(p_app->mem.alloc, staging_buffer, staging_alloc);
+		copy_buffer(p_app, staging, p_app->billboard.instance_buffer, size);
+		vmaDestroyBuffer(p_app->mem.alloc, staging, alloc);
 
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.billboard);
-
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->billboard.instance_buffer, &offset);
-
-		vkCmdDraw(command_buffer, 6, light_count, 0, 0);
+		vkCmdDraw(command_buffer, 6, p_app->obj.light_count, 0, 0);
 
 		free(light_order);
-		free(sorted_instances);
+		free(sorted);
 	}
 
 	vkCmdEndRenderPass(command_buffer);
 
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
-		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-											 "command buffer => failed to end record");
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "command buffer => failed to end record");
 		exit(EXIT_FAILURE);
 	}
 }
