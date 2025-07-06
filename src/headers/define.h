@@ -61,7 +61,7 @@ typedef struct _division {
 } _division;
 
 typedef enum _texture_flags {
-	TEXTURE_FLAG_NONE       = 0,
+	TEXTURE_FLAG_NONE = 0,
 	TEXTURE_FLAG_HAS_ALPHA  = 1 << 0,
 	TEXTURE_FLAG_IS_ROTATED = 1 << 1,
 } _texture_flags;
@@ -75,6 +75,11 @@ typedef enum _packer_flags {
 	PACKER_FLAG_NONE = 0,
 	PACKER_FLAG_ALWAYS_REGENERATE = 1 << 0,
 } _packer_flags;
+
+typedef enum _object_flags {
+	OBJECT_FLAG_NONE = 0,
+	OBJECT_FLAG_CENTRE_AT_ZERO = 1 << 0,
+} _object_flags;
 
 typedef struct _texture {
 	u16 index;
@@ -301,6 +306,7 @@ typedef struct _app_objects {
 	u32 light_count;
 	cgltf_data **data;
 	u32 primitive_count;
+	u8 *flags;
 } _app_objects;
 
 typedef struct _app_view {

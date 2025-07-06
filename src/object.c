@@ -4,8 +4,11 @@
 void load_gltf(_app *p_app) {
 	u32 file_count = p_app->tex.file.count;
 	p_app->obj.data = malloc(sizeof(cgltf_data*) * file_count);
+	p_app->obj.flags = malloc(sizeof(u8) * file_count);
 
 	for (u32 i = 0; i < file_count; i++) {
+		p_app->obj.flags[i] = OBJECT_FLAG_CENTRE_AT_ZEO;
+
 		const char *dir = p_app->config.dir.objects;
 		const char *file = p_app->tex.file.names[i];
 		size_t len = strlen(dir) + strlen(file) + 1;

@@ -71,13 +71,55 @@ void create_mesh_buffer(_app *p_app) {
 	p_app->mesh.centroids = malloc(sizeof(vec3) * primitive_count);
 	p_app->mesh.tex_index = malloc(sizeof(u32) * primitive_count);
 
+	float *x_avg = malloc(sizeof(float) * p_app->tex.file.count);
+	float *y_avg = malloc(sizeof(float) * p_app->tex.file.count);
+	float *z_avg = malloc(sizeof(float) * p_app->tex.file.count);
+
+	for (u32 f = 0; f < p_app->tex.file.count; f++) {
+		if (p_app->obj.flags[f] & OBJECT_FLAG_CENTRE_AT_ZERO) {
+			cgltf_data *data = p_app->obj.data[f];
+
+			float x_min = FLT_MAX, x_max = -FLT_MAX;
+			float y_min = FLT_MAX, y_max = -FLT_MAX;
+			float z_min = FLT_MAX, z_max = -FLT_MAX;
+
+			for (u32 m = 0; m < data->meshes_count; m++) {
+				cgltf_mesh *mesh = &data->meshes[m];
+
+				for (u32 p =0; p < mesh->primitives_count; p++) {
+					cgltf_primitive* prim = &mesh->primitives[p];
+
+					cgltf_accessor* pos_acc = NULL;
+
+					for (size_t a = 0; a < prim->attributes_count; a++) {
+						cgltf_attribute* attr = &prim->attributes[a];
+						if (attr->type == cgltf_attribute_type_position) pos_acc = attr->data;
+					}
+
+					u32 v_count = (u32)pos_acc->count;
+					for (u32 v = 0; v < v_count; v++) {
+						float pos[3];
+						cgltf_accessor_read_float(pos_acc, v, pos, 3);
+						if (pos[0] < x_min) {x_min = pos[0];}
+						if (pos[0] > x_max) {x_max = pos[0];}
+						if (pos[1] < y_min) {y_min = pos[1];}
+						if (pos[1] > y_max) {y_max = pos[1];}
+						if (pos[2] < z_min) {z_min = pos[2];}
+						if (pos[2] > z_max) {z_max = pos[2];}
+					}
+				}
+			}
+
+			x_avg[f] = (x_max + x_min) / 2;
+			y_avg[f] = (y_max + y_min) / 2;
+			z_avg[f] = (z_max + z_min) / 2;
+		}
+
+	}
+
 	u32 prim_index = 0;
 	for (u32 f = 0; f < p_app->tex.file.count; f++) {
 		cgltf_data *data = p_app->obj.data[f];
-
-		float x_min = FLT_MAX, x_max = -FLT_MAX;
-		float y_min = FLT_MAX, y_max = -FLT_MAX;
-		float z_min = FLT_MAX, z_max = -FLT_MAX;
 
 		for (u32 m = 0; m < data->meshes_count; m++) {
 			cgltf_mesh *mesh = &data->meshes[m];
@@ -112,21 +154,12 @@ void create_mesh_buffer(_app *p_app) {
 				_vertex* vertices = malloc(sizeof(_vertex) * v_count);
 
 				for (u32 i = 0; i < v_count; i++) {
-					float pos[3];
-					cgltf_accessor_read_float(pos_acc, i, pos, 3);
-					if (pos[0] < x_min) {x_min = pos[0];}
-					if (pos[0] > x_max) {x_max = pos[0];}
-					if (pos[1] < y_min) {y_min = pos[1];}
-					if (pos[1] > y_max) {y_max = pos[1];}
-					if (pos[2] < z_min) {z_min = pos[2];}
-					if (pos[2] > z_max) {z_max = pos[2];}
-				}
-
-				for (u32 i = 0; i < v_count; i++) {
 					cgltf_accessor_read_float(pos_acc, i, vertices[i].pos, 3);
-					vertices[i].pos[0] -= -1520.0f;
-					vertices[i].pos[1] -= 3456.0f;
-					vertices[i].pos[2] -= 64.0f;
+					if (p_app->obj.flags[f] & OBJECT_FLAG_CENTRE_AT_ZERO) {
+						vertices[i].pos[0] -= x_avg[f];
+						vertices[i].pos[1] -= y_avg[f];
+						vertices[i].pos[2] -= z_avg[f];
+					}
 
 					float y = vertices[i].pos[1];
 					float z = vertices[i].pos[2];
@@ -220,13 +253,6 @@ void create_mesh_buffer(_app *p_app) {
 				free(indices);
 			}
 		}
-
-		float x_avg = (x_max + x_min) / 2;
-		float y_avg = (y_max + y_min) / 2;
-		float z_avg = (z_max + z_min) / 2;
-
-		printf("%.2f, %.2f, %.2f\n", x_avg, y_avg, z_avg);
-
 	}
 }
 
@@ -377,7 +403,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 			_texture tex = p_app->atlas.textures[tex_index];
 
 			glm_mat4_identity(pc.model);
-			glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
+			//glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
 
 			mat3 normal3;
 			glm_mat4_pick3(pc.model, normal3);
@@ -418,7 +444,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		_texture tex = p_app->atlas.textures[tex_index];
 
 		glm_mat4_identity(pc.model);
-		glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
+		//glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
 
 		mat3 normal3;
 		glm_mat4_pick3(pc.model, normal3);
