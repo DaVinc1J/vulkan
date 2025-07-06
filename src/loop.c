@@ -23,8 +23,10 @@ void log_performance(_app *p_app) {
 	p_app->perf.fps_avg = 1.0f / p_app->perf.frame_time_avg;
 
 	p_app->perf.frame_count++;
-	if (p_app->perf.frame_count % 60 == 0) {
-		printf("[perf] FPS: %.1f, Frame Time: %.2f ms\n", p_app->perf.fps_avg, p_app->perf.frame_time_avg * 1000.0f);
+	if (p_app->config.flags & CONFIG_FLAG_PRINT_FPS) {
+		if (p_app->perf.frame_count % 60 == 0) {
+			printf("[perf] FPS: %.1f, Frame Time: %.2f ms\n", p_app->perf.fps_avg, p_app->perf.frame_time_avg * 1000.0f);
+		}
 	}
 }
 
@@ -57,8 +59,6 @@ void draw_frame(_app *p_app) {
 		recreate_swapchain(p_app);
 		return;
 	} else if (aquire_result != VK_SUCCESS && aquire_result != VK_SUBOPTIMAL_KHR) {
-
-		printf("vkAcquireNextImageKHR returned: %d, image index: %u\n", aquire_result, image_index);
 
 		submit_debug_message(
 			p_app->inst.instance,

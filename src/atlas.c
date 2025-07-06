@@ -1,4 +1,5 @@
 #include "headers/atlas.h"
+//#include "headers/validation.h"
 
 static const u8 digit_font[10][5] = {
 	{0b111, 0b101, 0b101, 0b101, 0b111},
@@ -97,29 +98,6 @@ void generate_debug_atlas(const char *filename, _packer *packer, _infos *infos, 
 
 	stbi_write_png(filename, width, height, channels, atlas, width * channels);
 	free(atlas);
-}
-
-void print_atlas(_packer *packer, _infos *infos, _texture *textures, u16 *remap) {
-	printf("Atlas Scale: %u x %u\n", packer->scale, packer->scale);
-	printf("Entries:\n");
-	for (u16 i = 0; i < infos->count; i++) {
-		_entry *e = &infos->entries[i];
-		printf("  [%u] w=%u h=%u index=%u\n", i, e->w, e->h, e->index);
-	}
-	printf("Remap Table:\n");
-	for (u16 i = 0; i < infos->count; i++) {
-		printf("  remap[%u] = %u\n", i, remap[i]);
-	}
-	printf("Textures:\n");
-	for (u16 i = 0; i < infos->count; i++) {
-		_texture *t = &textures[i];
-		printf("  tex[%u]: x=%u y=%u w=%u h=%u flags=0x%x\n", i, t->x, t->y, t->w, t->h, t->flags);
-	}
-	printf("Divisions:\n");
-	for (u16 i = 0; i < packer->division_count; i++) {
-		_division *d = &packer->divisions[i];
-		printf("  [%u] x=%u y=%u w=%u h=%u\n", i, d->x, d->y, d->w, d->h);
-	}
 }
 
 void split_division(_packer *packer, u16 tex_w, u16 tex_h, _division *division) {
@@ -260,20 +238,21 @@ void generate_atlas(const char *filename, _packer *packer, _infos *infos, _textu
 		u16 sorted_index = remap[orig_index];
 		_entry *entry = &infos->entries[sorted_index];
 
-		for (u16 y = 0; y < tex->h; y++) {
-			for (u16 x = 0; x < tex->w; x++) {
-				u32 dst_x = tex->x + x;
-				u32 dst_y = tex->y + y;
-				u32 dst_idx = (dst_y * width + dst_x) * channels;
-				u32 src_idx = (y * tex->w + x) * channels;
+u8 rotated = tex->flags & TEXTURE_FLAG_IS_ROTATED;
 
-				if (entry->pixels[src_idx + 3] < 255) {
-    			tex->flags |= TEXTURE_FLAG_HAS_ALPHA;
-				}
+for (u16 y = 0; y < tex->h; y++) {
+  for (u16 x = 0; x < tex->w; x++) {
+    u32 dst_x = tex->x + x;
+    u32 dst_y = tex->y + y;
+    u32 dst_idx = (dst_y * width + dst_x) * channels;
 
-				memcpy(&atlas[dst_idx], &entry->pixels[src_idx], channels);
-			}
-		}
+    u16 src_x = rotated ? y : x;
+    u16 src_y = rotated ? tex->w - 1 - x : y;
+    u32 src_idx = (src_y * entry->w + src_x) * channels;
+
+    memcpy(&atlas[dst_idx], &entry->pixels[src_idx], channels);
+  }
+}
 	}
 
 	stbi_write_png(filename, width, height, channels, atlas, width * channels);

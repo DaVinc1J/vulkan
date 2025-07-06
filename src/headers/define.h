@@ -66,6 +66,11 @@ typedef enum _texture_flags {
 	TEXTURE_FLAG_IS_ROTATED = 1 << 1,
 } _texture_flags;
 
+typedef enum _config_flags {
+	CONFIG_FLAG_NONE = 0,
+	CONFIG_FLAG_PRINT_FPS = 1 << 0,
+} _config_flags;
+
 typedef enum _packer_flags {
 	PACKER_FLAG_NONE = 0,
 	PACKER_FLAG_ALWAYS_REGENERATE = 1 << 0,
@@ -135,6 +140,8 @@ typedef struct _ubo {
 typedef struct _push_constants {
 	mat4 model;
 	mat4 normal;
+	vec2 offset;
+	vec2 scale;
 } _push_constants;
 
 typedef struct _render_order {
@@ -230,8 +237,9 @@ typedef struct _app_mesh {
 	VmaAllocation* index_allocations;
 	u32* vertex_count;
 	u32* index_count;
-	vec3* centroids;
 	u8* is_transparent;
+	vec3* centroids;
+	u32* tex_index;
 } _app_mesh;
 
 typedef struct _app_billboard {
@@ -285,6 +293,7 @@ typedef struct _app_config {
 	u32 win_width;
 	u32 win_height;
 	_directory dir;
+	u8 flags;
 } _app_config;
 
 typedef struct _app_objects {

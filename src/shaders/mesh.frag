@@ -2,11 +2,18 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(location = 0) in vec3 frag_pos;
-layout(location = 1) in vec2 frag_tex;
+layout(location = 1) in vec2 frag_uv;
 layout(location = 2) in vec3 frag_norm;
 layout(location = 3) flat in int frag_tex_index;
 
 layout(location = 0) out vec4 out_color;
+
+layout(push_constant) uniform _push_constants {
+    mat4 model;
+    mat4 normal;
+    vec2 offset;
+    vec2 scale;
+} push;
 
 struct _billboard {
     vec4 pos;
@@ -28,6 +35,8 @@ void main() {
     vec3 diffuse_light = ubo.ambient_light.xyz * ubo.ambient_light.w;
     vec3 surface_normal = normalize(frag_norm);
 
+    vec2 tiled_frag_uv = fract(frag_uv) * push.scale + push.offset;
+
     for (int i = 0; i < ubo.light_count; i++) {
         vec3 light_direction = ubo.lights[i].pos.xyz - frag_pos;
         float attenuation = 1.0 / dot(light_direction, light_direction);
@@ -37,7 +46,7 @@ void main() {
         diffuse_light += intensity * cos_ang_incidence;
     }
 
-    vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], frag_tex);
+    vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], tiled_frag_uv);
     vec3 colour = diffuse_light * tex_colour.rgb;
 
     out_color = vec4(colour, tex_colour.a);

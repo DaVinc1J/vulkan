@@ -69,10 +69,15 @@ void create_mesh_buffer(_app *p_app) {
 	p_app->mesh.index_count = malloc(sizeof(u32) * primitive_count);
 	p_app->mesh.is_transparent = malloc(sizeof(u8) * primitive_count);
 	p_app->mesh.centroids = malloc(sizeof(vec3) * primitive_count);
+	p_app->mesh.tex_index = malloc(sizeof(u32) * primitive_count);
 
 	u32 prim_index = 0;
 	for (u32 f = 0; f < p_app->tex.file.count; f++) {
 		cgltf_data *data = p_app->obj.data[f];
+
+		float x_min = FLT_MAX, x_max = -FLT_MAX;
+		float y_min = FLT_MAX, y_max = -FLT_MAX;
+		float z_min = FLT_MAX, z_max = -FLT_MAX;
 
 		for (u32 m = 0; m < data->meshes_count; m++) {
 			cgltf_mesh *mesh = &data->meshes[m];
@@ -84,7 +89,7 @@ void create_mesh_buffer(_app *p_app) {
 				cgltf_accessor* norm_acc = NULL;
 				cgltf_accessor* tex_acc = NULL;
 
-				for (size_t a = 0; a < prim->attributes_count; ++a) {
+				for (size_t a = 0; a < prim->attributes_count; a++) {
 					cgltf_attribute* attr = &prim->attributes[a];
 					if (attr->type == cgltf_attribute_type_position) pos_acc = attr->data;
 					if (attr->type == cgltf_attribute_type_normal) norm_acc = attr->data;
@@ -99,31 +104,56 @@ void create_mesh_buffer(_app *p_app) {
 				}
 				_texture tex = p_app->atlas.textures[tex_index];
 				p_app->mesh.is_transparent[prim_index] = (tex.flags & TEXTURE_FLAG_HAS_ALPHA) != 0;
+				p_app->mesh.tex_index[prim_index] = tex_index;
 
 				u32 v_count = (u32)pos_acc->count;
 				u32 i_count = prim->indices ? (u32)prim->indices->count : v_count;
 
 				_vertex* vertices = malloc(sizeof(_vertex) * v_count);
-				for (u32 i = 0; i < v_count; ++i) {
+
+				for (u32 i = 0; i < v_count; i++) {
+					float pos[3];
+					cgltf_accessor_read_float(pos_acc, i, pos, 3);
+					if (pos[0] < x_min) {x_min = pos[0];}
+					if (pos[0] > x_max) {x_max = pos[0];}
+					if (pos[1] < y_min) {y_min = pos[1];}
+					if (pos[1] > y_max) {y_max = pos[1];}
+					if (pos[2] < z_min) {z_min = pos[2];}
+					if (pos[2] > z_max) {z_max = pos[2];}
+				}
+
+				for (u32 i = 0; i < v_count; i++) {
 					cgltf_accessor_read_float(pos_acc, i, vertices[i].pos, 3);
+					float x = vertices[i].pos[0];
+					float y = vertices[i].pos[1];
+					float z = vertices[i].pos[2];
+					
+					vertices[i].pos[0] -= -1520.0f;
+					vertices[i].pos[1] -= 3456.0f;
+					vertices[i].pos[2] -= 64.0f;
+
+					vertices[i].pos[1] = z;
+					vertices[i].pos[2] = -y;
+
+					printf("%.2f, %.2f, %.2f\n", vertices[i].pos[0], vertices[i].pos[1], vertices[i].pos[2]);
+
 					if (norm_acc) cgltf_accessor_read_float(norm_acc, i, vertices[i].norm, 3);
 					else memset(vertices[i].norm, 0, sizeof(float) * 3);
 
 					if (tex_acc) {
 						float uv[2];
 						cgltf_accessor_read_float(tex_acc, i, uv, 2);
-
-						float scale = (float)p_app->atlas.scale;
+						float u = uv[0];
+						float v = 1.0f - uv[1];
 
 						if (tex.flags & TEXTURE_FLAG_IS_ROTATED) {
-							float u = 1.0f - uv[1];
-							float v = uv[0];
-							vertices[i].tex[0] = (u * tex.w / scale) + (float)tex.x / scale;
-							vertices[i].tex[1] = (v * tex.h / scale) + (float)tex.y / scale;
-						} else {
-							vertices[i].tex[0] = (uv[0] * tex.w / scale) + (float)tex.x / scale;
-							vertices[i].tex[1] = (uv[1] * tex.h / scale) + (float)tex.y / scale;
+							float tmp = u;
+							u = 1.0f - v;
+							v = tmp;
 						}
+
+						vertices[i].tex[0] = u;
+						vertices[i].tex[1] = v;
 					}
 
 					vertices[i].tex_index = 0;
@@ -140,12 +170,19 @@ void create_mesh_buffer(_app *p_app) {
 
 				p_app->mesh.vertex_count[prim_index] = v_count;
 				p_app->mesh.index_count[prim_index] = i_count;
+
 				vec3 avg = {0};
 				for (u32 v = 0; v < v_count; ++v) {
-					glm_vec3_add(avg, vertices[v].pos, avg);
+					avg[0] += vertices[v].pos[0];
+					avg[1] += vertices[v].pos[1];
+					avg[2] += vertices[v].pos[2];
 				}
-				glm_vec3_scale(avg, 1.0f / v_count, avg);
-				glm_vec3_copy(p_app->mesh.centroids[prim_index], avg);
+				avg[0] /= v_count;
+				avg[1] /= v_count;
+				avg[2] /= v_count;
+				p_app->mesh.centroids[prim_index][0] = avg[0];
+				p_app->mesh.centroids[prim_index][1] = avg[1];
+				p_app->mesh.centroids[prim_index][2] = avg[2];
 
 				VkDeviceSize v_size = sizeof(_vertex) * v_count;
 				VkDeviceSize i_size = sizeof(u32) * i_count;
@@ -184,6 +221,13 @@ void create_mesh_buffer(_app *p_app) {
 				free(indices);
 			}
 		}
+
+		float x_avg = (x_max + x_min) / 2;
+		float y_avg = (y_max + y_min) / 2;
+		float z_avg = (z_max + z_min) / 2;
+
+		printf("%.2f, %.2f, %.2f\n", x_avg, y_avg, z_avg);
+
 	}
 }
 
@@ -310,65 +354,93 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-		p_app->pipeline.layout, 0, 1,
-		&p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
-
-	_push_constants pc;
-	glm_mat4_identity(pc.model);
-	glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
-
-	mat3 normal3;
-	glm_mat4_pick3(pc.model, normal3);
-	glm_mat3_inv(normal3, normal3);
-	glm_mat3_transpose(normal3);
-	glm_mat4_identity(pc.normal);
-	for (int i = 0; i < 3; ++i)
-		for (int j = 0; j < 3; ++j)
-			pc.normal[i][j] = normal3[i][j];
-
-	for (u32 i = 0; i < p_app->obj.primitive_count; ++i) {
-		if (p_app->mesh.is_transparent[i]) continue;
-
-		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
-
-		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
-		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
-
-		vkCmdPushConstants(command_buffer, p_app->pipeline.layout,
-			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-			0, sizeof(_push_constants), &pc);
-
-		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_count[i], 1, 0, 0, 0);
-	}
+												 p_app->pipeline.layout, 0, 1,
+												 &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
 
 	_render_order* sort_list = malloc(sizeof(_render_order) * p_app->obj.primitive_count);
 	u32 count = 0;
-
 	for (u32 i = 0; i < p_app->obj.primitive_count; ++i) {
-		if (!p_app->mesh.is_transparent[i]) continue;
+		if (p_app->mesh.is_transparent[i]) {
+			vec3 diff;
+			glm_vec3_sub(p_app->view.camera_pos, p_app->mesh.centroids[i], diff);
+			float dist_sq = glm_vec3_dot(diff, diff);
+			sort_list[count++] = (_render_order){ .object_index = i, .distance = dist_sq };
+		} else {
+			vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 
-		vec3 diff;
-		glm_vec3_sub(p_app->view.camera_pos, p_app->mesh.centroids[i], diff);
-		float dist_sq = glm_vec3_dot(diff, diff);
+			VkDeviceSize offset = 0;
+			vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
+			vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
 
-		sort_list[count++] = (_render_order){ .object_index = i, .distance = dist_sq };
+			_push_constants pc = {0};
+			float scale = (float)p_app->atlas.scale;
+			u32 tex_index = p_app->mesh.tex_index[i];
+			_texture tex = p_app->atlas.textures[tex_index];
+
+			glm_mat4_identity(pc.model);
+			glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
+
+			mat3 normal3;
+			glm_mat4_pick3(pc.model, normal3);
+			glm_mat3_inv(normal3, normal3);
+			glm_mat3_transpose(normal3);
+			glm_mat4_identity(pc.normal);
+			for (int r = 0; r < 3; ++r) {
+				for (int c = 0; c < 3; ++c) {
+					pc.normal[r][c] = normal3[r][c];
+				}
+			}
+
+			pc.offset[0] = (float)tex.x / (float)scale;
+			pc.offset[1] = (float)tex.y / (float)scale;
+			pc.scale[0] = (float)tex.w / (float)scale;
+			pc.scale[1] = (float)tex.h / (float)scale;
+
+			vkCmdPushConstants(command_buffer, p_app->pipeline.layout,
+											VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+											0, sizeof(_push_constants), &pc);
+
+			vkCmdDrawIndexed(command_buffer, p_app->mesh.index_count[i], 1, 0, 0, 0);
+		}
 	}
 
 	qsort(sort_list, count, sizeof(_render_order), compare_render_order);
 
 	for (u32 i = 0; i < count; ++i) {
 		u32 prim = sort_list[i].object_index;
-
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.transparent);
-
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[prim], &offset);
 		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[prim], 0, VK_INDEX_TYPE_UINT32);
 
+		_push_constants pc = {0};
+		float scale = (float)p_app->atlas.scale;
+		u32 tex_index = p_app->mesh.tex_index[i];
+		_texture tex = p_app->atlas.textures[tex_index];
+
+		glm_mat4_identity(pc.model);
+		glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
+
+		mat3 normal3;
+		glm_mat4_pick3(pc.model, normal3);
+		glm_mat3_inv(normal3, normal3);
+		glm_mat3_transpose(normal3);
+		glm_mat4_identity(pc.normal);
+		for (int r = 0; r < 3; ++r) {
+			for (int c = 0; c < 3; ++c) {
+				pc.normal[r][c] = normal3[r][c];
+			}
+		}
+
+		pc.offset[0] = (float)tex.x / (float)scale;
+		pc.offset[1] = (float)tex.y / (float)scale;
+		pc.scale[0] = (float)tex.w / (float)scale;
+		pc.scale[1] = (float)tex.h / (float)scale;
+
+
 		vkCmdPushConstants(command_buffer, p_app->pipeline.layout,
-			VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-			0, sizeof(_push_constants), &pc);
+										 VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+										 0, sizeof(_push_constants), &pc);
 
 		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_count[prim], 1, 0, 0, 0);
 	}

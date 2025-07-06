@@ -10,6 +10,8 @@ void app_init(_app *p_app) {
 	p_app->atlas.max_scale = 16384;
 	p_app->atlas.flags = PACKER_FLAG_ALWAYS_REGENERATE;
 
+	p_app->config.flags = CONFIG_FLAG_NONE;
+
 	p_app->shader.mesh_vert = "src/shaders/mesh.vert.spv";
 	p_app->shader.mesh_frag = "src/shaders/mesh.frag.spv";
 	p_app->shader.billboard_vert = "src/shaders/billboard.vert.spv";
@@ -30,15 +32,15 @@ void app_init(_app *p_app) {
 	p_app->config.dir.atlases = "src/atlases/";
 	p_app->config.dir.textures = "src/textures/";
 
-	glm_vec3_copy((vec3){0.0f, 2.0f, 0.0f}, p_app->view.camera_pos);
+	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, p_app->view.world_up);
 	p_app->view.fov_y = 80.0f;
-	p_app->view.near_plane = 0.01f;
-	p_app->view.far_plane = 1000.0f;
+	p_app->view.near_plane = 0.1f;
+	p_app->view.far_plane = 10000.0f;
 	p_app->view.rotation_speed = 0.0f;
-	p_app->view.speed = 0.1f;
-	p_app->view.lerp_speed = 1.0f;
+	p_app->view.speed = 100.0f;
+	p_app->view.lerp_speed = 0.5f;
 	p_app->view.sensitivity = 0.2f;
 	p_app->view.yaw = -90.0f;
 	p_app->view.pitch = 0.0f;
@@ -55,5 +57,5 @@ void app_init(_app *p_app) {
 	p_app->obj.lights = malloc(sizeof(_billboard) * p_app->obj.light_count);
 	memcpy(p_app->obj.lights, lights, sizeof(lights));
 
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, p_app->lighting.ambient);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.2f}, p_app->lighting.ambient);
 }
