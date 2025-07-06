@@ -124,13 +124,12 @@ void create_mesh_buffer(_app *p_app) {
 
 				for (u32 i = 0; i < v_count; i++) {
 					cgltf_accessor_read_float(pos_acc, i, vertices[i].pos, 3);
-					float x = vertices[i].pos[0];
-					float y = vertices[i].pos[1];
-					float z = vertices[i].pos[2];
-					
 					vertices[i].pos[0] -= -1520.0f;
 					vertices[i].pos[1] -= 3456.0f;
 					vertices[i].pos[2] -= 64.0f;
+
+					float y = vertices[i].pos[1];
+					float z = vertices[i].pos[2];
 
 					vertices[i].pos[1] = z;
 					vertices[i].pos[2] = -y;
@@ -378,7 +377,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 			_texture tex = p_app->atlas.textures[tex_index];
 
 			glm_mat4_identity(pc.model);
-			glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
+			glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
 
 			mat3 normal3;
 			glm_mat4_pick3(pc.model, normal3);
@@ -419,7 +418,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		_texture tex = p_app->atlas.textures[tex_index];
 
 		glm_mat4_identity(pc.model);
-		glm_scale(pc.model, (vec3){3.0f, 3.0f, 3.0f});
+		glm_scale(pc.model, (vec3){0.01f, 0.01f, 0.01f});
 
 		mat3 normal3;
 		glm_mat4_pick3(pc.model, normal3);

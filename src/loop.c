@@ -149,24 +149,10 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
-	float radius = 1.0f;
-	float speed = 3.0f;
 
-	int light_count = p_app->obj.light_count;
-	for (int i = 0; i < light_count; ++i) {
-		float angle = speed * time + ((float)i / (float)light_count) * 2.0f * M_PI;
-
-		float modifier = 0.25f * (cosf(2.5f * angle) + 2.0f);
-
-		float x = cosf(angle) * radius + 0.33;
-		float y = 1.0f + sinf(angle * 1.5f) * 0.125f;
-		float z = sinf(angle) * radius;
-		float w = modifier * 0.25f;
-		p_app->obj.lights[i].data[3] = modifier;
-
-		vec4 rotated_pos = { x, y, z, w };
-		glm_vec4_copy(rotated_pos, ubo.lights[i].pos);
-		glm_vec4_copy(rotated_pos, p_app->obj.lights[i].pos);
+	for (int i = 0; i < p_app->obj.light_count; ++i) {
+		glm_vec4(p_app->view.camera_pos, p_app->obj.lights[i].pos[3], p_app->obj.lights[i].pos);
+		glm_vec4_copy(p_app->obj.lights[i].pos, ubo.lights[i].pos);
 		glm_vec4_copy(p_app->obj.lights[i].data, ubo.lights[i].data);
 		glm_vec4_copy(p_app->obj.lights[i].flags, ubo.lights[i].flags);
 	}
