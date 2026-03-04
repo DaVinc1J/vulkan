@@ -122,6 +122,11 @@ void create_graphics_pipelines(_app *p_app) {
 		.cullMode = VK_CULL_MODE_BACK_BIT,
 		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
 		.lineWidth = 1.0f,
+
+		.depthBiasEnable = VK_TRUE,
+    .depthBiasConstantFactor = 1.0f,
+    .depthBiasClamp = 0.0f,
+    .depthBiasSlopeFactor = 1.0f,
 	};
 
 	VkPipelineMultisampleStateCreateInfo multisample = {
@@ -132,7 +137,7 @@ void create_graphics_pipelines(_app *p_app) {
 	VkPipelineDepthStencilStateCreateInfo depth = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 		.depthTestEnable = VK_TRUE,
-		.depthCompareOp = VK_COMPARE_OP_LESS,
+		.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
 	};
 
 	VkPipelineColorBlendAttachmentState blend_opaque = {
@@ -167,18 +172,12 @@ void create_graphics_pipelines(_app *p_app) {
 		.attachmentCount = 1,
 	};
 
-	VkPushConstantRange push_constant_range = {
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-		.offset = 0,
-		.size = sizeof(_push_constants),
-	};
-
 	VkPipelineLayoutCreateInfo layout_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
 		.pSetLayouts = &p_app->pipeline.descriptor_set_layout,
-		.pushConstantRangeCount = 1,
-		.pPushConstantRanges = &push_constant_range,
+		.pushConstantRangeCount = 0,
+		.pPushConstantRanges = NULL,
 	};
 
 	if (vkCreatePipelineLayout(p_app->device.logical, &layout_info, NULL, &p_app->pipeline.layout) != VK_SUCCESS) {

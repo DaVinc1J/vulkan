@@ -2,6 +2,7 @@
 #include "headers/validation.h"
 #include "headers/swapchain.h"
 #include "headers/buffer.h"
+#include "headers/object.h"
 
 void log_performance(_app *p_app) {
 	struct timespec now;
@@ -68,8 +69,10 @@ void draw_frame(_app *p_app) {
 		exit(EXIT_FAILURE);
 	}
 
-
+	calculate_gravity(p_app);
+	update_billboard_positions(p_app);
 	update_uniform_buffer(p_app, p_app->sync.frame_index);
+	update_storage_buffers(p_app, p_app->sync.frame_index);
 
 	vkResetFences(p_app->device.logical, 1, &p_app->sync.in_flight_fences[p_app->sync.frame_index]);
 
@@ -149,18 +152,59 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
-
-	for (int i = 0; i < p_app->obj.light_count; ++i) {
-		glm_vec4(p_app->view.camera_pos, p_app->obj.lights[i].pos[3], p_app->obj.lights[i].pos);
-		glm_vec4_copy(p_app->obj.lights[i].pos, ubo.lights[i].pos);
-		glm_vec4_copy(p_app->obj.lights[i].data, ubo.lights[i].data);
-		glm_vec4_copy(p_app->obj.lights[i].flags, ubo.lights[i].flags);
-	}
-
-	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient_light);
-	ubo.light_count = p_app->obj.light_count;
+	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient);
 
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
+}
+
+void update_storage_buffers(_app *p_app, u32 current_image) {
+	size_t required_billboard_buffer_size = sizeof(uint32_t) + (p_app->obj.billboard_count * sizeof(_billboard));
+	size_t required_solar_object_buffer_size = sizeof(uint32_t) + (p_app->obj.solar_object_count * sizeof(_solar_object));
+
+	if (required_billboard_buffer_size > p_app->storage.billboard_current_buffer_size) {
+		VkDeviceSize new_buffer_size = required_billboard_buffer_size * 2;
+		recreate_billboard_storage_buffers(p_app, new_buffer_size);
+	}
+
+	if (required_solar_object_buffer_size > p_app->storage.solar_object_current_buffer_size) {
+		VkDeviceSize new_buffer_size = required_solar_object_buffer_size * 2;
+		recreate_solar_object_storage_buffers(p_app, new_buffer_size);
+	}
+
+	uint8_t* dest = (uint8_t*)p_app->storage.billboard_buffers_mapped[current_image];
+
+	memcpy(dest, &p_app->obj.billboard_count, sizeof(uint32_t));
+
+	if (p_app->obj.billboard_count > 0) {
+		memcpy(dest + sizeof(uint32_t), p_app->obj.billboards, 
+				 p_app->obj.billboard_count * sizeof(_billboard));
+	}
+
+	dest = (uint8_t*)p_app->storage.solar_object_buffers_mapped[current_image];
+	
+	memcpy(dest, &p_app->obj.solar_object_count, sizeof(uint32_t));
+
+	if (p_app->obj.solar_object_count > 0) {
+		memcpy(dest + sizeof(uint32_t), p_app->obj.solar_objects,
+				 p_app->obj.solar_object_count * sizeof(_solar_object));
+	}
+}
+
+void update_billboards (_app *p_app) {
+	for (int i = 0; i < p_app->obj.billboard_count; ++i) {
+		if ((p_app->obj.billboards[i].flags[0] & 1 << 0) == 1 && (p_app->obj.billboards[i].flags[2] & 1 << 0) != 1) {
+			float orbit_speed = 2.5f;
+			float radius = glm_vec3_distance(p_app->obj.billboards[i].pos_w, GLM_VEC3_ZERO);
+
+			if (radius > 0.1f) {
+				float angle = atan2f(p_app->obj.billboards[i].pos_w[2], p_app->obj.billboards[i].pos_w[0]);
+				angle += orbit_speed * p_app->perf.delta_time;
+
+				p_app->obj.billboards[i].pos_w[0] = cosf(angle) * radius;
+				p_app->obj.billboards[i].pos_w[2] = sinf(angle) * radius;
+			}
+		}
+	}
 }
 
 void update_view(_app *p_app, float time) {

@@ -10,26 +10,35 @@ void create_descriptor_set_layout(_app *p_app) {
 		.pImmutableSamplers = NULL,
 	};
 
-	VkDescriptorSetLayoutBinding sampler_layout_binding = {
+	VkDescriptorSetLayoutBinding sbo_billboard_layout_binding = {
 		.binding = 1,
-		.descriptorCount = p_app->tex.atlas.count,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 		.pImmutableSamplers = NULL,
-		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+	};
+
+	VkDescriptorSetLayoutBinding sbo_solar_object_layout_binding = {
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		.pImmutableSamplers = NULL,
 	};
 
 	VkDescriptorSetLayoutBinding bindings[] = {
 		ubo_layout_binding,
-		sampler_layout_binding,
+		sbo_billboard_layout_binding,
+		sbo_solar_object_layout_binding,
 	};
 
-	VkDescriptorSetLayoutCreateInfo ubo_layout_create_info = {
+	VkDescriptorSetLayoutCreateInfo descriptor_layout_create_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.bindingCount = sizeof(bindings) / sizeof(bindings[0]),
 		.pBindings = bindings,
 	};
 
-	if (vkCreateDescriptorSetLayout(p_app->device.logical, &ubo_layout_create_info, NULL, &p_app->pipeline.descriptor_set_layout) != VK_SUCCESS) {
+	if (vkCreateDescriptorSetLayout(p_app->device.logical, &descriptor_layout_create_info, NULL, &p_app->pipeline.descriptor_set_layout) != VK_SUCCESS) {
 		submit_debug_message(
 			p_app->inst.instance,
 			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
@@ -40,14 +49,24 @@ void create_descriptor_set_layout(_app *p_app) {
 }
 
 void create_descriptor_pool(_app *p_app) {
-	VkDescriptorPoolSize pool_sizes[2] = {
-		{ .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = MAX_FRAMES_IN_FLIGHT },
-		{ .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = MAX_FRAMES_IN_FLIGHT * p_app->tex.atlas.count }
+	VkDescriptorPoolSize pool_sizes[] = {
+		{
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = MAX_FRAMES_IN_FLIGHT
+		},
+		{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = MAX_FRAMES_IN_FLIGHT
+		},
+		{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = MAX_FRAMES_IN_FLIGHT
+		}
 	};
 
 	VkDescriptorPoolCreateInfo pool_create_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.poolSizeCount = 2,
+		.poolSizeCount = 3,
 		.pPoolSizes = pool_sizes,
 		.maxSets = MAX_FRAMES_IN_FLIGHT,
 	};
@@ -87,31 +106,25 @@ void create_descriptor_sets(_app *p_app) {
 	}
 
 	for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		VkDescriptorBufferInfo buffer_info = {
+		VkDescriptorBufferInfo ubo_info = {
 			.buffer = p_app->uniform.buffers[i],
 			.offset = 0,
-			.range = sizeof(_ubo)
+			.range = sizeof(_ubo),
 		};
 
-		u32 valid_tex_count = 0;
-		for (u32 j = 0; j < p_app->tex.atlas.count; j++) {
-			if (p_app->tex.image_views[j] != VK_NULL_HANDLE) {
-				valid_tex_count++;
-			}
-		}
+		VkDescriptorBufferInfo sbo_billboard_info = {
+			.buffer = p_app->storage.billboard_buffers[i],
+			.offset = 0,
+			.range = sizeof(_sbo),
+		};
 
-		VkDescriptorImageInfo *image_infos = malloc(sizeof(VkDescriptorImageInfo) * valid_tex_count);
-		u32 tex_i = 0;
-		for (u32 j = 0; j < p_app->tex.atlas.count; j++) {
-			if (p_app->tex.image_views[j] == VK_NULL_HANDLE) continue;
-			image_infos[tex_i++] = (VkDescriptorImageInfo){
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				.imageView = p_app->tex.image_views[j],
-				.sampler = p_app->tex.sampler,
-			};
-		}
+		VkDescriptorBufferInfo sbo_solar_object_info = {
+			.buffer = p_app->storage.solar_object_buffers[i],
+			.offset = 0,
+			.range = sizeof(_solar_object),
+		};
 
-		VkWriteDescriptorSet descriptor_writes[2] = {
+		VkWriteDescriptorSet descriptor_writes[] = {
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.dstSet = p_app->descriptor.sets[i],
@@ -119,21 +132,29 @@ void create_descriptor_sets(_app *p_app) {
 				.dstArrayElement = 0,
 				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 				.descriptorCount = 1,
-				.pBufferInfo = &buffer_info,
+				.pBufferInfo = &ubo_info,
 			},
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.dstSet = p_app->descriptor.sets[i],
 				.dstBinding = 1,
 				.dstArrayElement = 0,
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-				.descriptorCount = valid_tex_count,
-				.pImageInfo = image_infos,
-			}
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.descriptorCount = 1,
+				.pBufferInfo = &sbo_billboard_info,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = p_app->descriptor.sets[i],
+				.dstBinding = 2,
+				.dstArrayElement = 0,
+				.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.descriptorCount = 1,
+				.pBufferInfo = &sbo_solar_object_info,
+			},
 		};
 
-		vkUpdateDescriptorSets(p_app->device.logical, 2, descriptor_writes, 0, NULL);
-		free(image_infos);
+		vkUpdateDescriptorSets(p_app->device.logical, 3, descriptor_writes, 0, NULL);
 	}
 
 	free(layouts);

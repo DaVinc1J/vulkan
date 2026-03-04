@@ -1,80 +1,211 @@
 #include "headers/object.h"
-#include "headers/atlas.h"
 
-void load_gltf(_app *p_app) {
-	u32 file_count = p_app->tex.file.count;
-	p_app->obj.data = malloc(sizeof(cgltf_data*) * file_count);
-	p_app->obj.flags = malloc(sizeof(u8) * file_count);
+void generate_sphere(u32 segments, u32 rings, _vertex **out_vertices, u32 *out_vcount, u32 **out_indices, u32 *out_icount) {
+	u32 vcount = (rings + 1) * (segments + 1);
+	u32 icount = rings * segments * 6;
 
-	for (u32 i = 0; i < file_count; i++) {
-		p_app->obj.flags[i] = OBJECT_FLAG_CENTRE_AT_ZEO;
+	_vertex *verts = malloc(sizeof(_vertex) * vcount);
+	u32 *inds = malloc(sizeof(u32) * icount);
 
-		const char *dir = p_app->config.dir.objects;
-		const char *file = p_app->tex.file.names[i];
-		size_t len = strlen(dir) + strlen(file) + 1;
-		char *path = malloc(len);
-		strcpy(path, dir);
-		strcat(path, file);
+	u32 v = 0;
+	for (u32 y = 0; y <= rings; y++) {
+		float vcoord = (float)y / rings;
+		float phi = vcoord * M_PI;
 
-		cgltf_options options = {0};
-		cgltf_parse_file(&options, path, &p_app->obj.data[i]);
-		cgltf_load_buffers(&options, p_app->obj.data[i], path);
-		free(path);
+		for (u32 x = 0; x <= segments; x++) {
+			float ucoord = (float)x / segments;
+			float theta = ucoord * 2.0f * M_PI;
 
-		cgltf_data* data = p_app->obj.data[i];
-		for (u32 m = 0; m < data->meshes_count; m++) {
-			p_app->obj.primitive_count += data->meshes[m].primitives_count;
+			float sx = sinf(phi) * cosf(theta);
+			float sy = cosf(phi);
+			float sz = sinf(phi) * sinf(theta);
+
+			verts[v].pos[0] = sx * 1.0f; // replace 1.0f with radius if needed
+			verts[v].pos[1] = sy * 1.0f;
+			verts[v].pos[2] = sz * 1.0f;
+
+			verts[v].norm[0] = sx;
+			verts[v].norm[1] = sy;
+			verts[v].norm[2] = sz;
+
+			verts[v].uv[0] = ucoord;
+			verts[v].uv[1] = vcoord;
+
+			verts[v].data[0] = 0xFFFFFF;
+			verts[v].data[1] = 0;
+			verts[v].data[2] = 0;
+			verts[v].data[3] = 0;
+
+			v++;
 		}
+	}
 
-		u16 count = p_app->obj.data[i]->textures_count;
-		_packer packer;
-		packer.scale = p_app->atlas.scale;
-		packer.max_scale = p_app->atlas.max_scale;
-		packer.flags = p_app->atlas.flags;
-		_infos infos;
-		infos.count = count;
-		u16 *remap;
-		_texture *textures = malloc(sizeof(_texture) * count);
-		init_atlas(&packer, &infos, &remap);
+	u32 i = 0;
+	for (u32 y = 0; y < rings; y++) {
+		for (u32 x = 0; x < segments; x++) {
+			u32 i0 = y * (segments + 1) + x;
+			u32 i1 = i0 + 1;
+			u32 i2 = i0 + (segments + 1);
+			u32 i3 = i2 + 1;
 
-		for (u32 j = 0; j < infos.count; j++) {
-			const char *directory = p_app->config.dir.textures;
-			const char *texture_file = p_app->obj.data[i]->textures[j].image->uri;
+			inds[i++] = i0;
+			inds[i++] = i2;
+			inds[i++] = i1;
 
-			size_t path_length = strlen(directory) + strlen(texture_file) + 1;
-			char *texture_path = malloc(path_length);
-			strcpy(texture_path, directory);
-			strcat(texture_path, texture_file);
-
-			int tex_w, tex_h, channels;
-			infos.entries[j].pixels = stbi_load(texture_path, &tex_w, &tex_h, &channels, STBI_rgb_alpha);
-			free(texture_path);
-
-			infos.entries[j].w = (u16)tex_w;
-			infos.entries[j].h = (u16)tex_h;
-			infos.entries[j].index = j;
+			inds[i++] = i1;
+			inds[i++] = i2;
+			inds[i++] = i3;
 		}
+	}
 
-		pack_atlas(&packer, &infos, &textures, remap);
+	*out_vertices = verts;
+	*out_vcount = vcount;
+	*out_indices = inds;
+	*out_icount = icount;
+}
 
-		char atlas_file[32];
-		snprintf(atlas_file, sizeof(atlas_file), "atlas_%u.png", p_app->tex.atlas.count);
-		p_app->tex.atlas.names = realloc(p_app->tex.atlas.names, 
-																	 sizeof(char *) * (p_app->tex.atlas.count + 1));
-		p_app->tex.atlas.names[p_app->tex.atlas.count] = strdup(atlas_file);
-		const char *atlas_dir = p_app->config.dir.atlases;
-		size_t atlas_len = strlen(atlas_dir) + strlen(atlas_file) + 1;
-		char *atlas_path = malloc(atlas_len);
-		strcpy(atlas_path, atlas_dir);
-		strcat(atlas_path, atlas_file);
+void create_spheres(_app *p_app) {
+	u32 sphere_lods = MESH_SPHERE_LOD_COUNT;
+	u32 base = MESH_SHAPE_SPHERE_LOD0;
 
-		generate_atlas(atlas_path, &packer, &infos, textures, remap);
-		p_app->atlas.textures = textures;
-		p_app->atlas.texture_count = infos.count;
-		//print_atlas(&packer, &infos, textures, remap);
-		//generate_debug_atlas("debug_atlas.png", &packer, &infos, textures);
-		p_app->tex.atlas.count++;
+	p_app->mesh.vertex_counts = malloc(sizeof(u32) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.index_counts = malloc(sizeof(u32) * MESH_SPHERE_LOD_COUNT);
 
-		cleanup_atlas(&packer, &infos, remap);
+	p_app->mesh.vertices = malloc(sizeof(_vertex*) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.indices = malloc(sizeof(u32*) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.vertex_allocations = malloc(sizeof(VmaAllocation) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.index_allocations = malloc(sizeof(VmaAllocation) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.vertex_buffers = malloc(sizeof(VkBuffer) * MESH_SPHERE_LOD_COUNT);
+	p_app->mesh.index_buffers = malloc(sizeof(VkBuffer) * MESH_SPHERE_LOD_COUNT);
+
+	for (u32 lod = 0; lod < sphere_lods; lod++) {
+		_vertex *verts;
+		u32 *inds;
+		u32 vcount, icount;
+
+		generate_sphere(
+			MESH_SPHERE_LOD_SEGMENTS[lod],
+			MESH_SPHERE_LOD_RINGS[lod],
+			&verts,
+			&vcount,
+			&inds,
+			&icount
+		);
+
+		u32 id = base + lod;
+
+		p_app->mesh.vertex_counts[id] = vcount;
+		p_app->mesh.index_counts[id]  = icount;
+
+		p_app->mesh.vertices[id] = verts;
+		p_app->mesh.indices[id]  = inds;
+	}
+}
+
+_billboard generate_billboard(_solar_object *solar_object) {
+	_billboard billboard = {
+		.light_pos_w = {
+			.position = {
+				solar_object->position[0],
+				solar_object->position[1],
+				solar_object->position[2],
+			},
+			.intensity = 1.0f,
+		},
+		.size = {solar_object->radius, solar_object->radius},
+		.rotation = {0.0f, 0.0f},
+		.light_data = {
+			.colour_id = solar_object->colour_id,
+			.reserved1 = 0,
+			.reserved2 = 0,
+			.reserved3 = 0,
+		},
+		.type = BILLBOARD_TYPE_LIGHT,
+		.shape = BILLBOARD_SHAPE_CIRCLE,
+		.location = BILLBOARD_LOCATION_IN_WORLD,
+		.reserved = 0,
+	};
+
+	return billboard;
+}
+
+void create_billboards(_app *p_app) {
+	u32 billboard_index = 0;
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		if (p_app->obj.solar_objects[i].type == SOLAR_OBJECT_TYPE_LIGHT_EMIT) {
+			p_app->obj.billboard_count += 1;
+			if (p_app->obj.billboard_max <= p_app->obj.billboard_count) {
+				p_app->obj.billboards = realloc(p_app->obj.billboards, 2 * sizeof(_billboard) * p_app->obj.billboard_count);
+				p_app->obj.billboard_max = 2 * p_app->obj.billboard_count;
+			}
+			p_app->obj.billboards[billboard_index++] = generate_billboard(&p_app->obj.solar_objects[i]);
+			p_app->obj.solar_objects[i].billboard_index = billboard_index;
+		}
+	}
+}
+
+void calculate_gravity(_app *p_app) {
+	const float G_scaled = 6.67430e-11f * MASS_SCALE / (POSITION_SCALE * POSITION_SCALE * POSITION_SCALE);
+
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		glm_vec3_zero(p_app->obj.solar_objects[i].acceleration);
+	}
+
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		_solar_object *obj1 = &p_app->obj.solar_objects[i];
+
+		for (u32 j = i + 1; j < p_app->obj.solar_object_count; j++) {
+			_solar_object *obj2 = &p_app->obj.solar_objects[j];
+
+			vec3 r_vec;
+			glm_vec3_sub(obj2->position, obj1->position, r_vec);
+			float distance = glm_vec3_norm(r_vec);
+
+			if (distance < 1.0f) continue;
+
+			float force_magnitude = G_scaled * obj1->mass * obj2->mass / (distance * distance);
+
+			vec3 force_dir;
+			glm_vec3_normalize_to(r_vec, force_dir);
+
+			vec3 force_on_obj1, force_on_obj2;
+			glm_vec3_scale(force_dir, force_magnitude, force_on_obj1);
+			glm_vec3_scale(force_dir, -force_magnitude, force_on_obj2);
+
+			vec3 accel1, accel2;
+			glm_vec3_scale(force_on_obj1, 1.0f / obj1->mass, accel1);
+			glm_vec3_scale(force_on_obj2, 1.0f / obj2->mass, accel2);
+
+			glm_vec3_add(obj1->acceleration, accel1, obj1->acceleration);
+			glm_vec3_add(obj2->acceleration, accel2, obj2->acceleration);
+		}
+	}
+
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		_solar_object *obj = &p_app->obj.solar_objects[i];
+
+		vec3 velocity_delta;
+		glm_vec3_scale(obj->acceleration, p_app->perf.delta_time, velocity_delta);
+		glm_vec3_add(obj->velocity, velocity_delta, obj->velocity);
+
+		vec3 position_delta;
+		glm_vec3_scale(obj->velocity, p_app->perf.delta_time, position_delta);
+		glm_vec3_add(obj->position, position_delta, obj->position);
+	}
+}
+
+void update_billboard_positions(_app *p_app) {
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		_solar_object *solar_obj = &p_app->obj.solar_objects[i];
+		u32 b = solar_obj->billboard_index;
+
+		if (b < p_app->obj.billboard_count) {
+			p_app->obj.billboards[b].light_pos_w.position[0] = 
+				solar_obj->position[0];
+			p_app->obj.billboards[b].light_pos_w.position[1] = 
+				solar_obj->position[1];
+			p_app->obj.billboards[b].light_pos_w.position[2] = 
+				solar_obj->position[2];
+		}
 	}
 }

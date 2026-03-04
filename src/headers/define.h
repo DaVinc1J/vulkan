@@ -15,6 +15,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <cglm/cglm.h>
+#include <freetype/freetype.h>
 #include "../libraries/fast_obj.h"
 #include "../libraries/cgltf.h"
 
@@ -35,87 +36,165 @@ typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
 
+#define PLACEHOLDER_ZERO 0
 #define MAX_ATLAS_FILES 128
 #define MAX_OBJECT_FILES 16
 #define MAX_LIGHTS 16
+#define POSITION_SCALE 1.0f / 1.496e11f
+#define VELOCITY_SCALE 1.0f / 29.78e3f
+#define MASS_SCALE 1.0f / 1.989e30f
+#define RADIUS_SCALE 1.0f / 6.957e8f     
+
 extern const u32 MAX_FRAMES_IN_FLIGHT;
 
 u32 clamp(u32 n, u32 min, u32 max);
-
-typedef enum {
-	ENTRY_TYPE_TRANSPARENT_MESH,
-	ENTRY_TYPE_BILLBOARD
-} _transparency_entry_type;
-
-typedef struct {
-	_transparency_entry_type type;
-	u32 index;
-	float distance;
-} _transparency_entry;
-
-typedef struct _division {
-	u16 x;
-	u16 y;
-	u16 w;
-	u16 h;
-} _division;
-
-typedef enum _texture_flags {
-	TEXTURE_FLAG_NONE = 0,
-	TEXTURE_FLAG_HAS_ALPHA  = 1 << 0,
-	TEXTURE_FLAG_IS_ROTATED = 1 << 1,
-} _texture_flags;
 
 typedef enum _config_flags {
 	CONFIG_FLAG_NONE = 0,
 	CONFIG_FLAG_PRINT_FPS = 1 << 0,
 } _config_flags;
 
-typedef enum _packer_flags {
-	PACKER_FLAG_NONE = 0,
-	PACKER_FLAG_ALWAYS_REGENERATE = 1 << 0,
-} _packer_flags;
+typedef enum _billboard_type_flags {
+	BILLBOARD_TYPE_PLAIN = 0,
+	BILLBOARD_TYPE_LIGHT = 1 << 0,
+	BILLBOARD_TYPE_TEXTURE = 1 << 1,
+} _billboard_type_flags;
 
-typedef enum _object_flags {
-	OBJECT_FLAG_NONE = 0,
-	OBJECT_FLAG_CENTRE_AT_ZERO = 1 << 0,
-} _object_flags;
+typedef enum _billboard_shape_flags {
+	BILLBOARD_SHAPE_CIRCLE = 0,
+	BILLBOARD_SHAPE_SQUARE = 1 << 0,
+} _billboard_shape_flags;
 
-typedef struct _texture {
-	u16 index;
-	u16 x;
-	u16 y;
-	u16 w;
-	u16 h;
-	u8 flags;
-} _texture;
+typedef enum _billboard_location_flags {
+	BILLBOARD_LOCATION_IN_WORLD = 0,
+	BILLBOARD_LOCATION_IN_HUD = 1 << 0,
+} _billboard_location_flags;
 
-typedef struct _entry {
-	u16 w;
-	u16 h;
-	u16 index;
-	stbi_uc *pixels;
-} _entry;
+typedef enum _mesh_sphere_lod {
+	MESH_SPHERE_LOD0,
+	MESH_SPHERE_LOD1,
+	MESH_SPHERE_LOD2,
+	MESH_SPHERE_LOD3,
+	MESH_SPHERE_LOD_COUNT,
+} _mesh_sphere_lod;
 
-typedef struct _infos {
-	u16 count;
-	_entry *entries;
-} _infos;
+typedef enum _mesh_shape_type {
+	MESH_SHAPE_SPHERE_LOD0,
+	MESH_SHAPE_SPHERE_LOD1,
+	MESH_SHAPE_SPHERE_LOD2,
+	MESH_SHAPE_SPHERE_LOD3,
+	MESH_SHAPE_COUNT,
+} _mesh_shape_type;
 
-typedef struct _packer {
-	u16 scale;
-	u16 max_scale;
-	u16 flags;
-	_division *divisions;
-	u16 division_count;
-} _packer;
+static const u32 MESH_SPHERE_LOD_SEGMENTS[MESH_SPHERE_LOD_COUNT] = {
+	8, 16, 32, 64
+};
+
+static const u32 MESH_SPHERE_LOD_RINGS[MESH_SPHERE_LOD_COUNT] = {
+	8, 16, 32, 64
+};
+
+typedef enum _solar_object_type {
+	SOLAR_OBJECT_TYPE_PLAIN,
+	SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+	SOLAR_OBJECT_TYPE_COUNT,
+} _solar_object_type;
+
+typedef struct _billboard_legacy {
+	vec4 pos;
+	vec4 data;
+	u32 udata[4];
+	u32 flags[4];
+} _billboard_legacy;
+
+typedef struct _billboard {
+	union {
+		vec4 pos_w;
+		struct {
+			vec3 position;
+			float intensity;
+		} light_pos_w;
+		struct {
+			vec3 position;
+			float alpha;
+		} texture_pos_w;
+		struct {
+			vec3 position;
+			float alpha;
+		} plain_pos_w;
+	};
+
+	union {
+		vec4 size_rotation;
+		struct {
+			vec2 size;
+			vec2 rotation;
+		};
+	};
+
+	union {
+		u32 type_data[4];
+		struct {
+			u32 data0, data1, data2, data3;
+		};
+		struct {
+			u32 colour_id;
+			u32 reserved1;
+			u32 reserved2;
+			u32 reserved3;
+		} light_data;
+		struct {
+			u32 texture_id;
+			u32 reserved1;
+			u32 reserved2;
+			u32 reserved3;
+		} texture_data;
+		struct {
+			u32 colour_id;
+			u32 reserved1;
+			u32 reserved2;
+			u32 reserved3;
+		} plain_data;
+	};
+
+	union {
+		u32 flags[4];
+		struct {
+			u32 type, shape, location, reserved;
+		};
+	};
+} _billboard;
 
 typedef struct _vertex {
 	float pos[3];
-	float tex[2];
+	float uv[2];
 	float norm[3];
-	int tex_index;
+	u32 data[4];
 } _vertex;
+
+typedef struct _solar_object {
+	vec3 position;
+	vec3 velocity;
+	vec3 acceleration;
+
+	float mass;
+	float radius;
+
+	u32 colour_id;
+	u32 billboard_index;
+	u32 type;
+} _solar_object;
+
+typedef enum _colour_hex {
+    COLOUR_RED     = 0xFF0000,
+    COLOUR_GREEN   = 0x00FF00, 
+    COLOUR_BLUE    = 0x0000FF,
+    COLOUR_YELLOW  = 0xFFFF00,
+    COLOUR_CYAN    = 0x00FFFF,
+    COLOUR_WHITE   = 0xFFFFFF,
+    COLOUR_PURPLE  = 0x800080,
+    COLOUR_ORANGE  = 0xFF8000
+} _colour_hex;
 
 typedef struct _node {
 	_vertex vertex;
@@ -128,26 +207,16 @@ typedef struct _candidates {
 	u32 score;
 } _candidates;
 
-typedef struct _billboard {
-	vec4 pos;
-	vec4 data;
-	vec4 flags;
-} _billboard;
-
 typedef struct _ubo {
 	mat4 proj;
 	mat4 view;
-	vec4 ambient_light;
-	_billboard lights[16];
-	int light_count;
+	vec4 ambient;
 } _ubo;
 
-typedef struct _push_constants {
-	mat4 model;
-	mat4 normal;
-	vec2 offset;
-	vec2 scale;
-} _push_constants;
+typedef struct _sbo {
+	u32 billboard_count;
+	_billboard *billboards;
+} _sbo;
 
 typedef struct _render_order {
 	u32 object_index;
@@ -168,17 +237,6 @@ typedef struct _swapchain_support {
 	u32 surface_formats_count;
 	u32 present_modes_count;
 } _swapchain_support;
-
-typedef struct _file_info {
-	char **names;
-	u32 count;
-} _file_info;
-
-typedef struct _directory {
-	char *objects;
-	char *atlases;
-	char *textures;
-} _directory;
 
 typedef struct _app_window {
 	GLFWwindow* window;
@@ -236,21 +294,21 @@ typedef struct _app_memory {
 } _app_memory;
 
 typedef struct _app_mesh {
+	_vertex** vertices; 
+  u32** indices;
 	VkBuffer* vertex_buffers;
 	VkBuffer* index_buffers;
 	VmaAllocation* vertex_allocations;
 	VmaAllocation* index_allocations;
-	u32* vertex_count;
-	u32* index_count;
-	u8* is_transparent;
-	vec3* centroids;
-	u32* tex_index;
+	u32* vertex_counts;
+	u32* index_counts;
 } _app_mesh;
 
 typedef struct _app_billboard {
 	VkBuffer instance_buffer;
 	VmaAllocation instance_allocation;
 	void* buffers_mapped;
+	size_t current_buffer_size;
 } _app_billboard;
 
 typedef struct _app_uniforms {
@@ -259,20 +317,22 @@ typedef struct _app_uniforms {
 	void** buffers_mapped;
 } _app_uniforms;
 
+typedef struct _app_storages {
+	VkBuffer* billboard_buffers;
+	VmaAllocation* billboard_buffer_allocations;
+	void** billboard_buffers_mapped;
+	size_t billboard_current_buffer_size;
+	
+	VkBuffer* solar_object_buffers;
+	VmaAllocation* solar_object_buffer_allocations;
+	void** solar_object_buffers_mapped;
+	size_t solar_object_current_buffer_size;
+} _app_storages;
+
 typedef struct _app_descriptors {
 	VkDescriptorPool pool;
 	VkDescriptorSet* sets;
 } _app_descriptors;
-
-typedef struct _app_texture {
-	u32 *mip_levels;
-	VkImage *images;
-	VmaAllocation *image_allocations;
-	VkImageView *image_views;
-	VkSampler sampler;
-	_file_info file;
-	_file_info atlas;
-} _app_texture;
 
 typedef struct _app_depth_resources {
 	VkImage image;
@@ -297,17 +357,24 @@ typedef struct _app_config {
 	char *win_title;
 	u32 win_width;
 	u32 win_height;
-	_directory dir;
 	u8 flags;
 } _app_config;
 
+typedef struct _app_sim {
+} _app_sim;
+
 typedef struct _app_objects {
-	_billboard *lights;
-	u32 light_count;
-	cgltf_data **data;
+	_solar_object *solar_objects;
+	u32 solar_object_count;
+	_billboard *billboards;
+	u32 billboard_count;
+	u32 billboard_max;
 	u32 primitive_count;
-	u8 *flags;
 } _app_objects;
+
+typedef struct _app_lighting {
+	vec4 ambient;
+} _app_lighting;
 
 typedef struct _app_view {
 	vec3 camera_pos;
@@ -328,10 +395,6 @@ typedef struct _app_view {
 	float yaw, pitch;
 } _app_view;
 
-typedef struct _app_lighting {
-	vec4 ambient;
-} _app_lighting;
-
 typedef struct _app_performance {
 	struct timespec last_frame_time;
 	float delta_time;
@@ -339,14 +402,6 @@ typedef struct _app_performance {
 	float fps_avg;
 	int frame_count;
 } _app_performance;
-
-typedef struct _app_atlas {
-	_texture *textures;
-	u32 texture_count;
-	u32 scale;
-	u32 max_scale;
-	u32 flags;
-} _app_atlas;
 
 typedef struct _app {
 	_app_window win;
@@ -358,8 +413,8 @@ typedef struct _app {
 	_app_sync sync;
 	_app_memory mem;
 	_app_uniforms uniform;
+	_app_storages storage;
 	_app_descriptors descriptor;
-	_app_texture tex;
 	_app_depth depth;
 	_app_config config;
 	_app_mesh mesh;
@@ -368,9 +423,9 @@ typedef struct _app {
 	_app_shader shader;
 	_app_view view;
 	_app_colour colour;
-	_app_lighting lighting;
 	_app_performance perf;
-	_app_atlas atlas;
+	_app_lighting lighting;
+	_app_sim sim;
 } _app;
 
 #endif

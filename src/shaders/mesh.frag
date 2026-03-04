@@ -4,50 +4,86 @@
 layout(location = 0) in vec3 frag_pos;
 layout(location = 1) in vec2 frag_uv;
 layout(location = 2) in vec3 frag_norm;
-layout(location = 3) flat in int frag_tex_index;
+layout(location = 3) in flat uvec4 frag_data;
 
 layout(location = 0) out vec4 out_color;
 
-layout(push_constant) uniform _push_constants {
-    mat4 model;
-    mat4 normal;
-    vec2 offset;
-    vec2 scale;
-} push;
-
 struct _billboard {
-    vec4 pos;
-    vec4 data;
-    vec4 flags;
+    vec4 pos_w;
+    vec4 size_rotation;
+    uvec4 type_data;
+    uvec4 flags;
 };
 
-layout(binding = 0) uniform _ubo {
+struct _solar_object {
+    vec3 position;
+    vec3 velocity;
+    vec3 acceleration;
+
+    float mass;
+    float radius;
+
+    uint colour_id;
+    uint billboard_index;
+    uint type;
+};
+
+layout(set = 0, binding = 0) uniform _ubo {
     mat4 proj;
     mat4 view;
-    vec4 ambient_light;
-    _billboard lights[16];
-    int light_count;
+    vec4 ambient;
 } ubo;
 
-layout(binding = 1) uniform sampler2D tex_samplers[];
+layout(std430, binding = 1) readonly buffer _sbo_billboards {
+    uint count;
+    _billboard objects[];
+} sbo_billboards;
+
+layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
+    uint count;
+    _solar_object objects[];
+} sbo_solar;
+
+//layout(binding = 3) uniform sampler2D tex_samplers[];
+
+vec3 unpack_color(uint packed_color) {
+    return vec3(
+        float((packed_color >> 16) & 0xFF) / 255.0,
+        float((packed_color >> 8) & 0xFF) / 255.0,
+        float(packed_color & 0xFF) / 255.0
+    );
+}
 
 void main() {
-    vec3 diffuse_light = ubo.ambient_light.xyz * ubo.ambient_light.w;
+    vec3 diffuse_light = ubo.ambient.xyz * ubo.ambient.w;
     vec3 surface_normal = normalize(frag_norm);
 
-    vec2 tiled_frag_uv = fract(frag_uv) * push.scale + push.offset;
+    for (int i = 0; i < sbo.billboard_count; i++) {
+        bool is_light = (sbo.billboards[i].flags.x & 1u) != 0u;
+        if (!is_light) continue;
 
-    for (int i = 0; i < ubo.light_count; i++) {
-        vec3 light_direction = ubo.lights[i].pos.xyz - frag_pos;
-        float attenuation = 1.0 / dot(light_direction, light_direction);
-        float cos_ang_incidence = max(dot(surface_normal, normalize(light_direction)), 0.0);
-        vec3 intensity = ubo.lights[i].data.xyz * ubo.lights[i].data.w * attenuation;
+        bool is_hud = (sbo.billboards[i].flags.z & 1u) != 0u;
+        if (is_hud) continue;
 
+        vec3 light_pos = sbo.billboards[i].pos_w.xyz;
+        vec3 light_direction = light_pos - frag_pos;
+
+        float distance_sq = dot(light_direction, light_direction);
+        float attenuation = 1.0 / distance_sq;
+
+        light_direction = normalize(light_direction);
+
+        float cos_ang_incidence = max(dot(surface_normal, light_direction), 0.0);
+
+        vec3 light_color = unpack_color(sbo.billboards[i].type_data.x);
+        float light_intensity = sbo.billboards[i].pos_w.w;
+
+        vec3 intensity = light_color * light_intensity * attenuation;
         diffuse_light += intensity * cos_ang_incidence;
     }
 
-    vec4 tex_colour = texture(tex_samplers[nonuniformEXT(frag_tex_index)], tiled_frag_uv);
-    vec3 colour = diffuse_light * tex_colour.rgb;
+    vec3 surface_color = unpack_color(frag_data[0]);
+    vec3 diffuse_colour = diffuse_light * surface_color;
 
-    out_color = vec4(colour, tex_colour.a);
+    out_color = vec4(diffuse_colour, 1.0);
 }

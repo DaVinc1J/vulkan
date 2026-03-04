@@ -8,6 +8,9 @@ void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDevice
 void create_billboard_buffer(_app *p_app);
 void create_mesh_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
+void create_storage_buffers(_app *p_app);
+void recreate_billboard_storage_buffers(_app *p_app, VkDeviceSize new_size);
+void recreate_solar_object_storage_buffers(_app *p_app, VkDeviceSize new_size);
 
 void create_command_pool(_app *p_app);
 void create_command_buffers(_app *p_app);
