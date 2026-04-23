@@ -492,7 +492,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[lod], &offset);
 		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[lod], 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, 0);
+		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, i);
 	}
 
 	//for (u32 i = 0; i < MESH_SPHERE_LOD_COUNT; i++) {

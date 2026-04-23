@@ -32,7 +32,7 @@ void app_init(_app *p_app) {
 
 	static const _solar_object solar_objects[] = {
 		{
-			.position = {0.0f, 3.0f, 0.0f},
+			.position = {0.0f, 0.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
 			.mass = 4.0e9f,
@@ -41,7 +41,7 @@ void app_init(_app *p_app) {
 			.type = SOLAR_OBJECT_TYPE_PLAIN,
 		},
 		{
-			.position = {-10.0f, 3.0f, -10.0f},
+			.position = {-10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, 2.0f},
 
 			.mass = 1.0e5f,
@@ -51,7 +51,7 @@ void app_init(_app *p_app) {
 		},
 
 		{
-			.position = {10.0f, 3.0f, 10.0f},
+			.position = {10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, -2.0f},
 
 			.mass = 1.0e5f,
@@ -61,7 +61,7 @@ void app_init(_app *p_app) {
 		},
 
 		{
-			.position = {-10.0f, 3.0f, 10.0f},
+			.position = {-10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, 2.0f},
 
 			.mass = 1.0e5f,
@@ -71,7 +71,7 @@ void app_init(_app *p_app) {
 		},
 
 		{
-			.position = {10.0f, 3.0f, -10.0f},
+			.position = {10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, -2.0f},
 
 			.mass = 1.0e5f,
