@@ -32,7 +32,7 @@ void app_init(_app *p_app) {
 
 	static const _solar_object solar_objects[] = {
 		{
-			.position = {0.0f, 0.0f, 0.0f},
+			.position = {0.0f, 5.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
 			.mass = 4.0e9f,
@@ -49,7 +49,6 @@ void app_init(_app *p_app) {
 			.colour_id = COLOUR_PURPLE,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
-
 		{
 			.position = {10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, -2.0f},
@@ -59,7 +58,6 @@ void app_init(_app *p_app) {
 			.colour_id = COLOUR_BLUE,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
-
 		{
 			.position = {-10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, 2.0f},
@@ -69,7 +67,6 @@ void app_init(_app *p_app) {
 			.colour_id = COLOUR_RED,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
-
 		{
 			.position = {10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, -2.0f},

@@ -43,29 +43,26 @@ layout(set = 0, binding = 0) uniform _ubo {
 
 layout(std430, binding = 1) readonly buffer _sbo_billboards {
     uint billboard_count;
-    uint _pad[3];
     _billboard billboards[];
 } sbo_billboards;
 
 layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
     uint solar_object_count;
-    uint _pad[3];
     _solar_object solar_objects[];
 } sbo_solar_objects;
 
+layout(push_constant) uniform push_constants {
+    uint object_index;
+} pc;
+
 void main() {
-    _solar_object obj = sbo_solar_objects.solar_objects[gl_InstanceIndex];
+    _solar_object obj = sbo_solar_objects.solar_objects[pc.object_index];
 
-    mat4 model = mat4(1.0);
-    model[0][0] = obj.radius;
-    model[1][1] = obj.radius;
-    model[2][2] = obj.radius;
-    model[3] = vec4(obj.position, 1.0);
+    vec3 world_pos = in_pos + obj.position;
 
-    vec4 world_pos = model * vec4(in_pos, 1.0);
-    gl_Position = ubo.proj * ubo.view * world_pos;
+    gl_Position = ubo.proj * ubo.view * vec4(world_pos, 1.0);
 
-    frag_pos = world_pos.xyz;
+    frag_pos = world_pos;
     frag_norm = normalize(in_norm);
     frag_uv = in_uv;
     frag_data = in_data;

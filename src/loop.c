@@ -56,16 +56,6 @@ void draw_frame(_app *p_app) {
 		&image_index
 	);
 
-		_solar_object *obj = &p_app->obj.solar_objects[0];
-		printf("  Position: [%.2f, %.2f, %.2f]\n", obj->position[0], obj->position[1], obj->position[2]);
-		printf("  Velocity: [%.2f, %.2f, %.2f]\n", obj->velocity[0], obj->velocity[1], obj->velocity[2]);
-		printf("  Acceleration: [%.2f, %.2f, %.2f]\n", obj->acceleration[0], obj->acceleration[1], obj->acceleration[2]);
-		printf("  Mass: %.2e\n", obj->mass);
-		printf("  Radius: %.2f\n", obj->radius);
-		printf("  Colour ID: 0x%X\n", obj->colour_id);
-		printf("  Type: %d\n", obj->type);
-		printf("  Billboard Index: %d\n\n", obj->billboard_index);
-
 	if (aquire_result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreate_swapchain(p_app);
 		return;

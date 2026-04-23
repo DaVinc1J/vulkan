@@ -234,7 +234,7 @@ void create_storage_buffers(_app *p_app) {
 		}
 
 		p_app->storage.billboard_buffers_mapped[i] = billboard_allocation_info.pMappedData;
-		
+
 		VmaAllocationInfo solar_object_allocation_info;
 		if (vmaCreateBuffer(p_app->mem.alloc, &solar_object_buffer_create_info, &alloc_create_info,
 											&p_app->storage.solar_object_buffers[i],
@@ -476,7 +476,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
 		_solar_object *obj = &p_app->obj.solar_objects[i];
 
-		if (obj->type != SOLAR_OBJECT_TYPE_LIGHT_EMIT) {
+		if (obj->type == SOLAR_OBJECT_TYPE_LIGHT_EMIT) {
 			continue;
 		}
 
@@ -498,14 +498,19 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[lod], &offset);
 		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[lod], 0, VK_INDEX_TYPE_UINT32);
+
+		uint32_t object_index = i;
+		vkCmdPushConstants(
+			command_buffer,
+			p_app->pipeline.layout,
+			VK_SHADER_STAGE_VERTEX_BIT,
+			0,
+			sizeof(_push_constants),
+			&object_index
+		);
+
 		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, i);
 	}
-
-	//for (u32 i = 0; i < MESH_SPHERE_LOD_COUNT; i++) {
-	//	vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
-	//	vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
-	//	vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[i], 1, 0, 0, 0);
-	//}
 
 	if (p_app->obj.billboard_count > 0) {
 		_render_order* billboard_order = malloc(sizeof(_render_order) * p_app->obj.billboard_count);

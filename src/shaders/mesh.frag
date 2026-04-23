@@ -75,7 +75,7 @@ void main() {
         vec3 light_direction = light_pos - frag_pos;
 
         float distance_sq = dot(light_direction, light_direction);
-        float attenuation = 1.0 / distance_sq;
+        float attenuation = 1.0 / max(distance_sq, 0.0001);
 
         light_direction = normalize(light_direction);
 

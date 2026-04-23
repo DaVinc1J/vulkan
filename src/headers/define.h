@@ -107,6 +107,10 @@ typedef struct _billboard_legacy {
 	u32 flags[4];
 } _billboard_legacy;
 
+typedef struct _push_constants {
+	u32 object_index;
+} _push_constants;
+
 typedef struct _billboard {
 	union {
 		vec4 pos_w;
