@@ -20,8 +20,11 @@ struct _billboard {
 
 struct _solar_object {
     vec3 position;
+    float _pad0;
     vec3 velocity;
+    float _pad1;
     vec3 acceleration;
+    float _pad2;
 
     float mass;
     float radius;
@@ -29,6 +32,7 @@ struct _solar_object {
     uint colour_id;
     uint billboard_index;
     uint type;
+    uint _pad3;
 };
 
 layout(set = 0, binding = 0) uniform _ubo {
@@ -39,11 +43,13 @@ layout(set = 0, binding = 0) uniform _ubo {
 
 layout(std430, binding = 1) readonly buffer _sbo_billboards {
     uint billboard_count;
+    uint _pad[3];
     _billboard billboards[];
 } sbo_billboards;
 
 layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
     uint solar_object_count;
+    uint _pad[3];
     _solar_object solar_objects[];
 } sbo_solar_objects;
 

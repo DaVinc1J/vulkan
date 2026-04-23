@@ -109,19 +109,19 @@ void create_descriptor_sets(_app *p_app) {
 		VkDescriptorBufferInfo ubo_info = {
 			.buffer = p_app->uniform.buffers[i],
 			.offset = 0,
-			.range = sizeof(_ubo),
+			.range = VK_WHOLE_SIZE,
 		};
 
 		VkDescriptorBufferInfo sbo_billboard_info = {
 			.buffer = p_app->storage.billboard_buffers[i],
 			.offset = 0,
-			.range = sizeof(_sbo),
+			.range = VK_WHOLE_SIZE,
 		};
 
 		VkDescriptorBufferInfo sbo_solar_object_info = {
 			.buffer = p_app->storage.solar_object_buffers[i],
 			.offset = 0,
-			.range = sizeof(_solar_object),
+			.range = VK_WHOLE_SIZE,
 		};
 
 		VkWriteDescriptorSet descriptor_writes[] = {

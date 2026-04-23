@@ -173,16 +173,15 @@ typedef struct _vertex {
 } _vertex;
 
 typedef struct _solar_object {
-	vec3 position;
-	vec3 velocity;
-	vec3 acceleration;
-
-	float mass;
-	float radius;
-
-	u32 colour_id;
-	u32 billboard_index;
-	u32 type;
+    vec3 position;     float _pad0; 
+    vec3 velocity;     float _pad1;
+    vec3 acceleration; float _pad2;
+    float mass;
+    float radius;
+    u32 colour_id;
+    u32 billboard_index;
+    u32 type;
+    u32 _pad3;
 } _solar_object;
 
 typedef enum _colour_hex {

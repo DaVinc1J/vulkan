@@ -187,8 +187,8 @@ void create_uniform_buffers(_app *p_app) {
 }
 
 void create_storage_buffers(_app *p_app) {
-	VkDeviceSize billboard_buffer_size = sizeof(_sbo);
-	VkDeviceSize solar_object_buffer_size = sizeof(_sbo);
+	VkDeviceSize billboard_buffer_size = sizeof(uint32_t) + p_app->obj.billboard_count * sizeof(_billboard);
+	VkDeviceSize solar_object_buffer_size = sizeof(uint32_t) + p_app->obj.solar_object_count * sizeof(_solar_object);
 
 	p_app->storage.billboard_buffers = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.billboard_buffer_allocations = malloc(sizeof(VmaAllocation) * MAX_FRAMES_IN_FLIGHT);
