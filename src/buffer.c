@@ -199,9 +199,16 @@ void create_storage_buffers(_app *p_app) {
 	p_app->storage.solar_object_buffers_mapped = malloc(sizeof(void*) * MAX_FRAMES_IN_FLIGHT);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-		VkBufferCreateInfo buffer_create_info = {
+		VkBufferCreateInfo billboard_buffer_create_info = {
 			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			.size = billboard_buffer_size,
+			.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE
+		};
+
+		VkBufferCreateInfo solar_object_buffer_create_info = {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.size = solar_object_buffer_size,
 			.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 		};
@@ -212,11 +219,11 @@ void create_storage_buffers(_app *p_app) {
 			.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
 		};
 
-		VmaAllocationInfo allocation_info;
-		if (vmaCreateBuffer(p_app->mem.alloc, &buffer_create_info, &alloc_create_info,
+		VmaAllocationInfo billboard_allocation_info;
+		if (vmaCreateBuffer(p_app->mem.alloc, &billboard_buffer_create_info, &alloc_create_info,
 											&p_app->storage.billboard_buffers[i],
 											&p_app->storage.billboard_buffer_allocations[i],
-											&allocation_info) != VK_SUCCESS) {
+											&billboard_allocation_info) != VK_SUCCESS) {
 
 			submit_debug_message(
 				p_app->inst.instance,
@@ -226,14 +233,13 @@ void create_storage_buffers(_app *p_app) {
 			exit(EXIT_FAILURE);
 		}
 
-		p_app->storage.billboard_buffers_mapped[i] = allocation_info.pMappedData;
-
-		buffer_create_info.size = solar_object_buffer_size;
-
-		if (vmaCreateBuffer(p_app->mem.alloc, &buffer_create_info, &alloc_create_info,
+		p_app->storage.billboard_buffers_mapped[i] = billboard_allocation_info.pMappedData;
+		
+		VmaAllocationInfo solar_object_allocation_info;
+		if (vmaCreateBuffer(p_app->mem.alloc, &solar_object_buffer_create_info, &alloc_create_info,
 											&p_app->storage.solar_object_buffers[i],
 											&p_app->storage.solar_object_buffer_allocations[i],
-											&allocation_info) != VK_SUCCESS) {
+											&solar_object_allocation_info) != VK_SUCCESS) {
 
 			submit_debug_message(
 				p_app->inst.instance,
@@ -243,7 +249,7 @@ void create_storage_buffers(_app *p_app) {
 			exit(EXIT_FAILURE);
 		}
 
-		p_app->storage.solar_object_buffers_mapped[i] = allocation_info.pMappedData;
+		p_app->storage.solar_object_buffers_mapped[i] = solar_object_allocation_info.pMappedData;
 	}
 }
 
