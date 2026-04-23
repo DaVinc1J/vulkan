@@ -58,14 +58,14 @@ void main() {
     vec3 diffuse_light = ubo.ambient.xyz * ubo.ambient.w;
     vec3 surface_normal = normalize(frag_norm);
 
-    for (int i = 0; i < sbo.billboard_count; i++) {
-        bool is_light = (sbo.billboards[i].flags.x & 1u) != 0u;
+    for (int i = 0; i < sbo_billboards.count; i++) {
+        bool is_light = (sbo_billboards.objects[i].flags.x & 1u) != 0u;
         if (!is_light) continue;
 
-        bool is_hud = (sbo.billboards[i].flags.z & 1u) != 0u;
+        bool is_hud = (sbo_billboards.objects[i].flags.z & 1u) != 0u;
         if (is_hud) continue;
 
-        vec3 light_pos = sbo.billboards[i].pos_w.xyz;
+        vec3 light_pos = sbo_billboards.objects[i].pos_w.xyz;
         vec3 light_direction = light_pos - frag_pos;
 
         float distance_sq = dot(light_direction, light_direction);
@@ -75,8 +75,8 @@ void main() {
 
         float cos_ang_incidence = max(dot(surface_normal, light_direction), 0.0);
 
-        vec3 light_color = unpack_color(sbo.billboards[i].type_data.x);
-        float light_intensity = sbo.billboards[i].pos_w.w;
+        vec3 light_color = unpack_color(sbo_billboards.objects[i].type_data.x);
+        float light_intensity = sbo_billboards.objects[i].pos_w.w;
 
         vec3 intensity = light_color * light_intensity * attenuation;
         diffuse_light += intensity * cos_ang_incidence;

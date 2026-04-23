@@ -138,8 +138,9 @@ void create_billboards(_app *p_app) {
 				p_app->obj.billboards = realloc(p_app->obj.billboards, 2 * sizeof(_billboard) * p_app->obj.billboard_count);
 				p_app->obj.billboard_max = 2 * p_app->obj.billboard_count;
 			}
-			p_app->obj.billboards[billboard_index++] = generate_billboard(&p_app->obj.solar_objects[i]);
+			p_app->obj.billboards[billboard_index] = generate_billboard(&p_app->obj.solar_objects[i]);
 			p_app->obj.solar_objects[i].billboard_index = billboard_index;
+			billboard_index++;
 		}
 	}
 }

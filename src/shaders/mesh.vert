@@ -48,11 +48,19 @@ layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
 } sbo_solar_objects;
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * vec4(in_pos, 1.0);
+    _solar_object obj = sbo_solar_objects.solar_objects[gl_InstanceIndex];
 
-    frag_pos = in_pos;
+    mat4 model = mat4(1.0);
+    model[0][0] = obj.radius;
+    model[1][1] = obj.radius;
+    model[2][2] = obj.radius;
+    model[3] = vec4(obj.position, 1.0);
+
+    vec4 world_pos = model * vec4(in_pos, 1.0);
+    gl_Position = ubo.proj * ubo.view * world_pos;
+
+    frag_pos = world_pos.xyz;
     frag_norm = normalize(in_norm);
-
     frag_uv = in_uv;
     frag_data = in_data;
 }

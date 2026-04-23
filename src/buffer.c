@@ -193,6 +193,7 @@ void create_storage_buffers(_app *p_app) {
 	p_app->storage.billboard_buffers = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.billboard_buffer_allocations = malloc(sizeof(VmaAllocation) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.billboard_buffers_mapped = malloc(sizeof(void*) * MAX_FRAMES_IN_FLIGHT);
+
 	p_app->storage.solar_object_buffers = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.solar_object_buffer_allocations = malloc(sizeof(VmaAllocation) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.solar_object_buffers_mapped = malloc(sizeof(void*) * MAX_FRAMES_IN_FLIGHT);
@@ -242,7 +243,7 @@ void create_storage_buffers(_app *p_app) {
 			exit(EXIT_FAILURE);
 		}
 
-		p_app->storage.billboard_buffers_mapped[i] = allocation_info.pMappedData;
+		p_app->storage.solar_object_buffers_mapped[i] = allocation_info.pMappedData;
 	}
 }
 
@@ -361,7 +362,7 @@ void recreate_solar_object_storage_buffers(_app *p_app, VkDeviceSize new_size) {
 		VkWriteDescriptorSet descriptor_write = {
 			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			.dstSet = p_app->descriptor.sets[i],
-			.dstBinding = 1,
+			.dstBinding = 2,
 			.dstArrayElement = 0,
 			.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = 1,
@@ -494,11 +495,11 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, 0);
 	}
 
-	for (u32 i = 0; i < MESH_SPHERE_LOD_COUNT; i++) {
-		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
-		vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
-		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[i], 1, 0, 0, 0);
-	}
+	//for (u32 i = 0; i < MESH_SPHERE_LOD_COUNT; i++) {
+	//	vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->mesh.vertex_buffers[i], &offset);
+	//	vkCmdBindIndexBuffer(command_buffer, p_app->mesh.index_buffers[i], 0, VK_INDEX_TYPE_UINT32);
+	//	vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[i], 1, 0, 0, 0);
+	//}
 
 	if (p_app->obj.billboard_count > 0) {
 		_render_order* billboard_order = malloc(sizeof(_render_order) * p_app->obj.billboard_count);
