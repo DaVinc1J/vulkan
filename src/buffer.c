@@ -187,8 +187,11 @@ void create_uniform_buffers(_app *p_app) {
 }
 
 void create_storage_buffers(_app *p_app) {
-VkDeviceSize billboard_buffer_size     = SBO_HEADER_SIZE + p_app->obj.billboard_count    * sizeof(_billboard);
-VkDeviceSize solar_object_buffer_size  = SBO_HEADER_SIZE + p_app->obj.solar_object_count * sizeof(_solar_object);
+	VkDeviceSize billboard_buffer_size = SBO_HEADER_SIZE + p_app->obj.billboard_count    * sizeof(_billboard);
+	VkDeviceSize solar_object_buffer_size  = SBO_HEADER_SIZE + p_app->obj.solar_object_count * sizeof(_solar_object);
+
+	p_app->storage.billboard_current_buffer_size = billboard_buffer_size;
+	p_app->storage.solar_object_current_buffer_size = solar_object_buffer_size;
 
 	p_app->storage.billboard_buffers = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.billboard_buffer_allocations = malloc(sizeof(VmaAllocation) * MAX_FRAMES_IN_FLIGHT);
@@ -509,7 +512,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 			&object_index
 		);
 
-		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, i);
+		vkCmdDrawIndexed(command_buffer, p_app->mesh.index_counts[lod], 1, 0, 0, 0);
 	}
 
 	if (p_app->obj.billboard_count > 0) {

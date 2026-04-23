@@ -43,6 +43,7 @@ void app_init(_app *p_app) {
 	p_app->view.mouse_locked = true;
 
 	static const _solar_object solar_objects[] = {
+
 		{
 			.position = {-10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, 2.0f},
@@ -53,13 +54,22 @@ void app_init(_app *p_app) {
 			.type = SOLAR_OBJECT_TYPE_PLAIN,
 		},
 		{
+			.position = {0.0f, 0.0f, 0.0f},
+			.velocity = {0.0f, 0.0f, 0.0f},
+
+			.mass = 4.0e9f,
+			.radius = 3.0f,
+			.colour_id = COLOUR_WHITE,
+			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+		},
+		{
 			.position = {10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, -2.0f},
 
 			.mass = 1.0e5f,
 			.radius = 0.25f,
 			.colour_id = COLOUR_BLUE,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
+			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
 		{
 			.position = {-10.0f, 0.0f, 10.0f},
@@ -68,7 +78,7 @@ void app_init(_app *p_app) {
 			.mass = 1.0e5f,
 			.radius = 0.25f,
 			.colour_id = COLOUR_RED,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
+			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
 		{
 			.position = {10.0f, 0.0f, -10.0f},
@@ -77,15 +87,6 @@ void app_init(_app *p_app) {
 			.mass = 1.0e5f,
 			.radius = 0.25f,
 			.colour_id = COLOUR_YELLOW,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-		},
-		{
-			.position = {0.0f, 0.0f, 0.0f},
-			.velocity = {0.0f, 0.0f, 0.0f},
-
-			.mass = 4.0e9f,
-			.radius = 3.0f,
-			.colour_id = COLOUR_WHITE,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
 	};

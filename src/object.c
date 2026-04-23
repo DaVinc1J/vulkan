@@ -131,18 +131,23 @@ _billboard generate_billboard(_solar_object *solar_object) {
 }
 
 void create_billboards(_app *p_app) {
+	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+		p_app->obj.solar_objects[i].billboard_index = UINT32_MAX;
+	}
+
 	u32 billboard_index = 0;
 	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
-		if (p_app->obj.solar_objects[i].type == SOLAR_OBJECT_TYPE_LIGHT_EMIT) {
-			p_app->obj.billboard_count += 1;
-			if (p_app->obj.billboard_max <= p_app->obj.billboard_count) {
-				p_app->obj.billboards = realloc(p_app->obj.billboards, 2 * sizeof(_billboard) * p_app->obj.billboard_count);
-				p_app->obj.billboard_max = 2 * p_app->obj.billboard_count;
-			}
-			p_app->obj.billboards[billboard_index] = generate_billboard(&p_app->obj.solar_objects[i]);
-			p_app->obj.solar_objects[i].billboard_index = billboard_index;
-			billboard_index++;
+		if (p_app->obj.solar_objects[i].type != SOLAR_OBJECT_TYPE_LIGHT_EMIT) continue;
+
+		p_app->obj.billboard_count += 1;
+		if (p_app->obj.billboard_max <= p_app->obj.billboard_count) {
+			p_app->obj.billboards = realloc(p_app->obj.billboards, 2 * sizeof(_billboard) * p_app->obj.billboard_count);
+			p_app->obj.billboard_max = 2 * p_app->obj.billboard_count;
 		}
+
+		p_app->obj.billboards[billboard_index] = generate_billboard(&p_app->obj.solar_objects[i]);
+		p_app->obj.solar_objects[i].billboard_index = billboard_index;
+		billboard_index++;
 	}
 }
 
