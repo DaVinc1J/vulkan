@@ -1,6 +1,6 @@
 #include "headers/object.h"
 
-void generate_sphere(u32 segments, u32 rings, _vertex **out_vertices, u32 *out_vcount, u32 **out_indices, u32 *out_icount) {
+void generate_sphere(_app *p_app, u32 segments, u32 rings, _vertex **out_vertices, u32 *out_vcount, u32 **out_indices, u32 *out_icount) {
 	u32 vcount = (rings + 1) * (segments + 1);
 	u32 icount = rings * segments * 6;
 
@@ -20,9 +20,9 @@ void generate_sphere(u32 segments, u32 rings, _vertex **out_vertices, u32 *out_v
 			float sy = cosf(phi);
 			float sz = sinf(phi) * sinf(theta);
 
-			verts[v].pos[0] = sx * 1.0f; // replace 1.0f with radius if needed
-			verts[v].pos[1] = sy * 1.0f;
-			verts[v].pos[2] = sz * 1.0f;
+			verts[v].pos[0] = sx * p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER;
+			verts[v].pos[1] = sy * p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER;
+			verts[v].pos[2] = sz * p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER;
 
 			verts[v].norm[0] = sx;
 			verts[v].norm[1] = sy;
@@ -49,12 +49,12 @@ void generate_sphere(u32 segments, u32 rings, _vertex **out_vertices, u32 *out_v
 			u32 i3 = i2 + 1;
 
 			inds[i++] = i0;
-			inds[i++] = i2;
 			inds[i++] = i1;
+			inds[i++] = i2;
 
 			inds[i++] = i1;
-			inds[i++] = i2;
 			inds[i++] = i3;
+			inds[i++] = i2;
 		}
 	}
 
@@ -84,8 +84,9 @@ void create_spheres(_app *p_app) {
 		u32 vcount, icount;
 
 		generate_sphere(
-			MESH_SPHERE_LOD_SEGMENTS[lod],
-			MESH_SPHERE_LOD_RINGS[lod],
+			p_app,
+			p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[lod],
+			p_app->config.lod.MESH_SPHERE_LOD_RINGS[lod],
 			&verts,
 			&vcount,
 			&inds,

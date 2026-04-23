@@ -24,7 +24,7 @@ void log_performance(_app *p_app) {
 	p_app->perf.fps_avg = 1.0f / p_app->perf.frame_time_avg;
 
 	p_app->perf.frame_count++;
-	if (p_app->config.flags & CONFIG_FLAG_PRINT_FPS) {
+	if (p_app->config.win.flags & CONFIG_FLAG_PRINT_FPS) {
 		if (p_app->perf.frame_count % 60 == 0) {
 			printf("[perf] FPS: %.1f, Frame Time: %.2f ms\n", p_app->perf.fps_avg, p_app->perf.frame_time_avg * 1000.0f);
 		}
@@ -158,36 +158,25 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 }
 
 void update_storage_buffers(_app *p_app, u32 current_image) {
-	size_t required_billboard_buffer_size = sizeof(uint32_t) + (p_app->obj.billboard_count * sizeof(_billboard));
-	size_t required_solar_object_buffer_size = sizeof(uint32_t) + (p_app->obj.solar_object_count * sizeof(_solar_object));
+    size_t required_billboard_buffer_size    = SBO_HEADER_SIZE + (p_app->obj.billboard_count    * sizeof(_billboard));
+    size_t required_solar_object_buffer_size = SBO_HEADER_SIZE + (p_app->obj.solar_object_count * sizeof(_solar_object));
 
-	if (required_billboard_buffer_size > p_app->storage.billboard_current_buffer_size) {
-		VkDeviceSize new_buffer_size = required_billboard_buffer_size * 2;
-		recreate_billboard_storage_buffers(p_app, new_buffer_size);
-	}
+    if (required_billboard_buffer_size > p_app->storage.billboard_current_buffer_size) {
+        recreate_billboard_storage_buffers(p_app, required_billboard_buffer_size * 2);
+    }
+    if (required_solar_object_buffer_size > p_app->storage.solar_object_current_buffer_size) {
+        recreate_solar_object_storage_buffers(p_app, required_solar_object_buffer_size * 2);
+    }
 
-	if (required_solar_object_buffer_size > p_app->storage.solar_object_current_buffer_size) {
-		VkDeviceSize new_buffer_size = required_solar_object_buffer_size * 2;
-		recreate_solar_object_storage_buffers(p_app, new_buffer_size);
-	}
+    uint8_t *dest = (uint8_t*)p_app->storage.billboard_buffers_mapped[current_image];
+    memcpy(dest, &p_app->obj.billboard_count, sizeof(uint32_t));
+    if (p_app->obj.billboard_count > 0)
+        memcpy(dest + SBO_HEADER_SIZE, p_app->obj.billboards, p_app->obj.billboard_count * sizeof(_billboard));
 
-	uint8_t* dest = (uint8_t*)p_app->storage.billboard_buffers_mapped[current_image];
-
-	memcpy(dest, &p_app->obj.billboard_count, sizeof(uint32_t));
-
-	if (p_app->obj.billboard_count > 0) {
-		memcpy(dest + sizeof(uint32_t), p_app->obj.billboards, 
-				 p_app->obj.billboard_count * sizeof(_billboard));
-	}
-
-	dest = (uint8_t*)p_app->storage.solar_object_buffers_mapped[current_image];
-	
-	memcpy(dest, &p_app->obj.solar_object_count, sizeof(uint32_t));
-
-	if (p_app->obj.solar_object_count > 0) {
-		memcpy(dest + sizeof(uint32_t), p_app->obj.solar_objects,
-				 p_app->obj.solar_object_count * sizeof(_solar_object));
-	}
+    dest = (uint8_t*)p_app->storage.solar_object_buffers_mapped[current_image];
+    memcpy(dest, &p_app->obj.solar_object_count, sizeof(uint32_t));
+    if (p_app->obj.solar_object_count > 0)
+        memcpy(dest + SBO_HEADER_SIZE, p_app->obj.solar_objects, p_app->obj.solar_object_count * sizeof(_solar_object));
 }
 
 void update_billboards(_app *p_app) {

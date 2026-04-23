@@ -44,6 +44,7 @@ typedef int32_t i32;
 #define VELOCITY_SCALE 1.0f / 29.78e3f
 #define MASS_SCALE 1.0f / 1.989e30f
 #define RADIUS_SCALE 1.0f / 6.957e8f     
+#define SBO_HEADER_SIZE (sizeof(u32) * 4)
 
 extern const u32 MAX_FRAMES_IN_FLIGHT;
 
@@ -85,14 +86,6 @@ typedef enum _mesh_shape_type {
 	MESH_SHAPE_SPHERE_LOD3,
 	MESH_SHAPE_COUNT,
 } _mesh_shape_type;
-
-static const u32 MESH_SPHERE_LOD_SEGMENTS[MESH_SPHERE_LOD_COUNT] = {
-	8, 16, 32, 64
-};
-
-static const u32 MESH_SPHERE_LOD_RINGS[MESH_SPHERE_LOD_COUNT] = {
-	8, 16, 32, 64
-};
 
 typedef enum _solar_object_type {
 	SOLAR_OBJECT_TYPE_PLAIN,
@@ -356,11 +349,20 @@ typedef struct _app_shader {
 	char *billboard_frag;
 } _app_shader;
 
+
 typedef struct _app_config {
-	char *win_title;
-	u32 win_width;
-	u32 win_height;
-	u8 flags;
+	struct {
+		char *title;
+		u32 width;
+		u32 height;
+		u8 flags;
+	} win;
+	struct {
+		u32 MESH_SPHERE_LOD_SEGMENTS[MESH_SPHERE_LOD_COUNT];
+		u32 MESH_SPHERE_LOD_RINGS[MESH_SPHERE_LOD_COUNT];
+		u32 MESH_SPHERE_LOD_DISTANCES[MESH_SPHERE_LOD_COUNT - 1];
+		float MESH_SPHERE_LOD_RADIUS_MODIFIER;
+	} lod;
 } _app_config;
 
 typedef struct _app_sim {

@@ -43,7 +43,7 @@ void window_init(_app *p_app) {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-	p_app->win.window = glfwCreateWindow(p_app->config.win_width, p_app->config.win_height, p_app->config.win_title, NULL, NULL);
+	p_app->win.window = glfwCreateWindow(p_app->config.win.width, p_app->config.win.height, p_app->config.win.title, NULL, NULL);
 
 	glfwSetWindowUserPointer(p_app->win.window, p_app);
 	glfwSetFramebufferSizeCallback(p_app->win.window, framebuffer_resize_callback);

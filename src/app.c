@@ -2,13 +2,25 @@
 
 void app_init(_app *p_app) {
 
-	p_app->config.win_title = "davincij";
-	p_app->config.win_width = 800;
-	p_app->config.win_height = 800;
+	p_app->config.win.title = "davincij";
+	p_app->config.win.width = 800;
+	p_app->config.win.height = 800;
+	p_app->config.win.flags = CONFIG_FLAG_NONE;
+
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 8;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 16;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[2] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[3] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[0] = 8;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[1] = 16;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[2] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[3] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[0] = 200.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[1] = 400.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 800.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
 
 	p_app->sync.frame_index = 0;
-
-	p_app->config.flags = CONFIG_FLAG_NONE;
 
 	p_app->shader.mesh_vert = "src/shaders/mesh.vert.spv";
 	p_app->shader.mesh_frag = "src/shaders/mesh.frag.spv";
@@ -32,48 +44,48 @@ void app_init(_app *p_app) {
 
 	static const _solar_object solar_objects[] = {
 		{
-			.position = {0.0f, 5.0f, 0.0f},
-			.velocity = {0.0f, 0.0f, 0.0f},
-
-			.mass = 4.0e9f,
-			.radius = 1.0f,
-			.colour_id = COLOUR_WHITE,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-		},
-		{
 			.position = {-10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, 2.0f},
 
 			.mass = 1.0e5f,
-			.radius = 0.5f,
+			.radius = 0.25f,
 			.colour_id = COLOUR_PURPLE,
-			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+			.type = SOLAR_OBJECT_TYPE_PLAIN,
 		},
 		{
 			.position = {10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, -2.0f},
 
 			.mass = 1.0e5f,
-			.radius = 0.5f,
+			.radius = 0.25f,
 			.colour_id = COLOUR_BLUE,
-			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+			.type = SOLAR_OBJECT_TYPE_PLAIN,
 		},
 		{
 			.position = {-10.0f, 0.0f, 10.0f},
 			.velocity = {2.0f, 0.0f, 2.0f},
 
 			.mass = 1.0e5f,
-			.radius = 0.5f,
+			.radius = 0.25f,
 			.colour_id = COLOUR_RED,
-			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+			.type = SOLAR_OBJECT_TYPE_PLAIN,
 		},
 		{
 			.position = {10.0f, 0.0f, -10.0f},
 			.velocity = {-2.0f, 0.0f, -2.0f},
 
 			.mass = 1.0e5f,
-			.radius = 0.5f,
+			.radius = 0.25f,
 			.colour_id = COLOUR_YELLOW,
+			.type = SOLAR_OBJECT_TYPE_PLAIN,
+		},
+		{
+			.position = {0.0f, 0.0f, 0.0f},
+			.velocity = {0.0f, 0.0f, 0.0f},
+
+			.mass = 4.0e9f,
+			.radius = 3.0f,
+			.colour_id = COLOUR_WHITE,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 		},
 	};
@@ -89,5 +101,5 @@ void app_init(_app *p_app) {
 	p_app->obj.solar_objects = malloc(sizeof(_solar_object) * p_app->obj.solar_object_count);
 	memcpy(p_app->obj.solar_objects, solar_objects, sizeof(solar_objects));
 
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.2f}, p_app->lighting.ambient);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.02f}, p_app->lighting.ambient);
 }

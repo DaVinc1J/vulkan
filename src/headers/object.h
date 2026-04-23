@@ -3,7 +3,7 @@
 
 #include "define.h"
 
-void generate_sphere(u32 segments, u32 rings, _vertex **out_vertices, u32 *out_vcount, u32 **out_indices, u32 *out_icount);
+void generate_sphere(_app *p_app, u32 segments, u32 rings, _vertex **out_vertices, u32 *out_vcount, u32 **out_indices, u32 *out_icount);
 void create_spheres(_app *p_app);
 _billboard generate_billboard(_solar_object *solar_object);
 void create_billboards(_app *p_app);

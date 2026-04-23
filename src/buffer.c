@@ -187,8 +187,8 @@ void create_uniform_buffers(_app *p_app) {
 }
 
 void create_storage_buffers(_app *p_app) {
-	VkDeviceSize billboard_buffer_size = sizeof(uint32_t) + p_app->obj.billboard_count * sizeof(_billboard);
-	VkDeviceSize solar_object_buffer_size = sizeof(uint32_t) + p_app->obj.solar_object_count * sizeof(_solar_object);
+VkDeviceSize billboard_buffer_size     = SBO_HEADER_SIZE + p_app->obj.billboard_count    * sizeof(_billboard);
+VkDeviceSize solar_object_buffer_size  = SBO_HEADER_SIZE + p_app->obj.solar_object_count * sizeof(_solar_object);
 
 	p_app->storage.billboard_buffers = malloc(sizeof(VkBuffer) * MAX_FRAMES_IN_FLIGHT);
 	p_app->storage.billboard_buffer_allocations = malloc(sizeof(VmaAllocation) * MAX_FRAMES_IN_FLIGHT);
@@ -486,11 +486,11 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 		u32 lod;
 
-		if (dist2 < 25.0f) {
+		if (dist2 < p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[0]) {
 			lod = MESH_SPHERE_LOD3;
-		} else if (dist2 < 100.0f) {
+		} else if (dist2 < p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[1]) {
 			lod = MESH_SPHERE_LOD2;
-		} else if (dist2 < 400.0f) {
+		} else if (dist2 < p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2]) {
 			lod = MESH_SPHERE_LOD1;
 		} else {
 			lod = MESH_SPHERE_LOD0;

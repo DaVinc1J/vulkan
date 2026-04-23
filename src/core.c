@@ -40,9 +40,9 @@ void create_instance(_app *p_app) {
 
 	VkApplicationInfo app_info = {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-		.pApplicationName = p_app->config.win_title,
+		.pApplicationName = p_app->config.win.title,
 		.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-		.pEngineName = p_app->config.win_title,
+		.pEngineName = p_app->config.win.title,
 		.engineVersion = VK_MAKE_VERSION(1, 0, 0),
 		.apiVersion = api_version,
 		.pNext = NULL,
