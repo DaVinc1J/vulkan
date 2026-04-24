@@ -11,12 +11,13 @@ layout(location = 1) out vec2 frag_uv;
 layout(location = 2) out vec3 frag_norm;
 layout(location = 3) out uvec4 frag_data;
 
-struct _billboard {
-    vec4 pos_w;
-    vec4 size_rotation;
-    uvec4 type_data;
-    uvec4 flags;
-};
+layout(set = 0, binding = 0) uniform _ubo {
+    mat4 proj;
+    mat4 view;
+    mat4 inv_proj;
+    mat4 inv_view;
+    vec4 ambient;
+} ubo;
 
 struct _solar_object {
     vec3 position;
@@ -32,20 +33,10 @@ struct _solar_object {
     uint colour_id;
     uint billboard_index;
     uint type;
-    uint _pad3;
+    uint planet_type;
+    float intensity;
+    uint _pad5;
 };
-
-layout(set = 0, binding = 0) uniform _ubo {
-    mat4 proj;
-    mat4 view;
-    vec4 ambient;
-} ubo;
-
-layout(std430, binding = 1) readonly buffer _sbo_billboards {
-    uint billboard_count;
-    uint _pad[3];
-    _billboard billboards[];
-} sbo_billboards;
 
 layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
     uint solar_object_count;

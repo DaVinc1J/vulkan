@@ -111,7 +111,7 @@ _billboard generate_billboard(_solar_object *solar_object) {
 				solar_object->position[1],
 				solar_object->position[2],
 			},
-			.intensity = 1.0f,
+			.intensity = solar_object->intensity,
 		},
 		.size = {solar_object->radius, solar_object->radius},
 		.rotation = {0.0f, 0.0f},

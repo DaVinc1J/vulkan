@@ -8,6 +8,14 @@ layout(location = 3) in flat uvec4 frag_data;
 
 layout(location = 0) out vec4 out_color;
 
+layout(set = 0, binding = 0) uniform _ubo {
+    mat4 proj;
+    mat4 view;
+    mat4 inv_proj;
+    mat4 inv_view;
+    vec4 ambient;
+} ubo;
+
 struct _billboard {
     vec4 pos_w;
     vec4 size_rotation;
@@ -15,42 +23,11 @@ struct _billboard {
     uvec4 flags;
 };
 
-struct _solar_object {
-    vec3 position;
-    float _pad0;
-    vec3 velocity;
-    float _pad1;
-    vec3 acceleration;
-    float _pad2;
-
-    float mass;
-    float radius;
-
-    uint colour_id;
-    uint billboard_index;
-    uint type;
-    uint _pad3;
-};
-
-layout(set = 0, binding = 0) uniform _ubo {
-    mat4 proj;
-    mat4 view;
-    vec4 ambient;
-} ubo;
-
 layout(std430, binding = 1) readonly buffer _sbo_billboards {
     uint count;
     uint _pad[3];
     _billboard objects[];
 } sbo_billboards;
-
-layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
-    uint count;
-    uint _pad[3];
-    _solar_object objects[];
-} sbo_solar;
-
-//layout(binding = 3) uniform sampler2D tex_samplers[];
 
 vec3 unpack_color(uint packed_color) {
     return vec3(

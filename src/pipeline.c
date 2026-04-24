@@ -41,16 +41,22 @@ void create_graphics_pipelines(_app *p_app) {
 	size_t mesh_frag_shader_code_size;
 	size_t billboard_vert_shader_code_size;
 	size_t billboard_frag_shader_code_size;
+	size_t grid_vert_shader_code_size;
+	size_t grid_frag_shader_code_size;
 
 	const char* mesh_vert_shader_code = read_file(p_app, p_app->shader.mesh_vert, &mesh_vert_shader_code_size);
 	const char* mesh_frag_shader_code = read_file(p_app, p_app->shader.mesh_frag, &mesh_frag_shader_code_size);
 	const char* billboard_vert_shader_code = read_file(p_app, p_app->shader.billboard_vert, &billboard_vert_shader_code_size);
 	const char* billboard_frag_shader_code = read_file(p_app, p_app->shader.billboard_frag, &billboard_frag_shader_code_size);
+	const char* grid_vert_shader_code = read_file(p_app, p_app->shader.grid_vert, &grid_vert_shader_code_size);
+	const char* grid_frag_shader_code = read_file(p_app, p_app->shader.grid_frag, &grid_frag_shader_code_size);
 
 	VkShaderModule mesh_vert_shader_module = create_shader_module(p_app, mesh_vert_shader_code, mesh_vert_shader_code_size); 
 	VkShaderModule mesh_frag_shader_module = create_shader_module(p_app, mesh_frag_shader_code, mesh_frag_shader_code_size);
 	VkShaderModule billboard_vert_shader_module = create_shader_module(p_app, billboard_vert_shader_code, billboard_vert_shader_code_size); 
 	VkShaderModule billboard_frag_shader_module = create_shader_module(p_app, billboard_frag_shader_code, billboard_frag_shader_code_size);
+	VkShaderModule grid_vert_shader_module = create_shader_module(p_app, grid_vert_shader_code, grid_vert_shader_code_size); 
+	VkShaderModule grid_frag_shader_module = create_shader_module(p_app, grid_frag_shader_code, grid_frag_shader_code_size);
 
 	VkPipelineShaderStageCreateInfo mesh_shader_stages[2] = {
 		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = mesh_vert_shader_module, .pName = "main" },
@@ -60,6 +66,11 @@ void create_graphics_pipelines(_app *p_app) {
 	VkPipelineShaderStageCreateInfo billboard_shader_stages[2] = {
 		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = billboard_vert_shader_module, .pName = "main" },
 		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = billboard_frag_shader_module, .pName = "main" },
+	};
+
+	VkPipelineShaderStageCreateInfo grid_shader_stages[2] = {
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_VERTEX_BIT, .module = grid_vert_shader_module, .pName = "main" },
+		{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, .stage = VK_SHADER_STAGE_FRAGMENT_BIT, .module = grid_frag_shader_module, .pName = "main" },
 	};
 
 	VkVertexInputBindingDescription mesh_binding_desc = get_mesh_binding_description();
@@ -88,6 +99,12 @@ void create_graphics_pipelines(_app *p_app) {
 		.vertexAttributeDescriptionCount = billboard_attr_count,
 		.pVertexBindingDescriptions = &billboard_binding_desc,
 		.pVertexAttributeDescriptions = billboard_attr_descs,
+	};
+
+	VkPipelineVertexInputStateCreateInfo grid_vertex_input = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 0,
+		.vertexAttributeDescriptionCount = 0,
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_asm = {
@@ -167,6 +184,17 @@ void create_graphics_pipelines(_app *p_app) {
 		.alphaBlendOp = VK_BLEND_OP_ADD,
 	};
 
+	VkPipelineColorBlendAttachmentState blend_grid = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+	};
+
 	VkPipelineColorBlendStateCreateInfo blend_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
 		.attachmentCount = 1,
@@ -194,21 +222,21 @@ void create_graphics_pipelines(_app *p_app) {
 	VkGraphicsPipelineCreateInfo pipeline_info = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,
-		.pStages = mesh_shader_stages,
-		.pVertexInputState = &mesh_vertex_input,
 		.pInputAssemblyState = &input_asm,
 		.pViewportState = &viewport_state,
 		.pRasterizationState = &raster,
 		.pMultisampleState = &multisample,
 		.pDepthStencilState = &depth,
 		.pDynamicState = &dynamic_state,
+		.pColorBlendState = &blend_state,
 		.layout = p_app->pipeline.layout,
 		.renderPass = p_app->pipeline.render_pass,
 	};
 
 	depth.depthWriteEnable = VK_TRUE;
 	blend_state.pAttachments = &blend_opaque;
-	pipeline_info.pColorBlendState = &blend_state;
+	pipeline_info.pStages = mesh_shader_stages;
+	pipeline_info.pVertexInputState = &mesh_vertex_input;
 	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.opaque) != VK_SUCCESS) {
 		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "opaque pipeline => failed");
 		exit(EXIT_FAILURE);
@@ -216,7 +244,8 @@ void create_graphics_pipelines(_app *p_app) {
 
 	depth.depthWriteEnable = VK_FALSE;
 	blend_state.pAttachments = &blend_transparent;
-	pipeline_info.pColorBlendState = &blend_state;
+	pipeline_info.pStages = mesh_shader_stages;
+	pipeline_info.pVertexInputState = &mesh_vertex_input;
 	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.transparent) != VK_SUCCESS) {
 		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "transparent pipeline => failed");
 		exit(EXIT_FAILURE);
@@ -224,10 +253,19 @@ void create_graphics_pipelines(_app *p_app) {
 
 	depth.depthWriteEnable = VK_FALSE;
 	blend_state.pAttachments = &blend_billboard;
-	pipeline_info.pColorBlendState = &blend_state;
 	pipeline_info.pStages = billboard_shader_stages;
 	pipeline_info.pVertexInputState = &billboard_vertex_input;
 	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.billboard) != VK_SUCCESS) {
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "billboard pipeline => failed");
+		exit(EXIT_FAILURE);
+	}
+
+	depth.depthWriteEnable = VK_TRUE;
+	blend_state.pAttachments = &blend_grid;
+	pipeline_info.pStages = grid_shader_stages;
+	pipeline_info.pVertexInputState = &grid_vertex_input;
+	raster.cullMode = VK_CULL_MODE_NONE;
+	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.grid) != VK_SUCCESS) {
 		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "billboard pipeline => failed");
 		exit(EXIT_FAILURE);
 	}
@@ -236,6 +274,14 @@ void create_graphics_pipelines(_app *p_app) {
 	vkDestroyShaderModule(p_app->device.logical, mesh_vert_shader_module, NULL);
 	vkDestroyShaderModule(p_app->device.logical, billboard_frag_shader_module, NULL);
 	vkDestroyShaderModule(p_app->device.logical, billboard_vert_shader_module, NULL);
+	vkDestroyShaderModule(p_app->device.logical, grid_frag_shader_module, NULL);
+	vkDestroyShaderModule(p_app->device.logical, grid_vert_shader_module, NULL);
+	free((void*)mesh_vert_shader_code);
+	free((void*)mesh_frag_shader_code);
+	free((void*)billboard_vert_shader_code);
+	free((void*)billboard_frag_shader_code);
+	free((void*)grid_vert_shader_code);
+	free((void*)grid_frag_shader_code);
 }
 
 VkShaderModule create_shader_module(_app *p_app, const char* shader_code, size_t shader_code_size) {

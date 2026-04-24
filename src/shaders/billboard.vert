@@ -11,47 +11,13 @@ layout(location = 2) out flat uvec4 frag_type_data;
 layout(location = 3) out flat uvec4 frag_flags;
 layout(location = 4) out float frag_alpha;
 
-struct _billboard {
-    vec4 pos_w;
-    vec4 size_rotation;
-    uvec4 type_data;
-    uvec4 flags;
-};
-
-struct _solar_object {
-    vec3 position;
-    float _pad0;
-    vec3 velocity;
-    float _pad1;
-    vec3 acceleration;
-    float _pad2;
-
-    float mass;
-    float radius;
-
-    uint colour_id;
-    uint billboard_index;
-    uint type;
-    uint _pad3;
-};
-
 layout(set = 0, binding = 0) uniform _ubo {
     mat4 proj;
     mat4 view;
+    mat4 inv_proj;
+    mat4 inv_view;
     vec4 ambient;
 } ubo;
-
-layout(std430, binding = 1) readonly buffer _sbo_billboards {
-    uint billboard_count;
-    uint _pad[3];
-    _billboard billboards[];
-} sbo_billboards;
-
-layout(std430, binding = 2) readonly buffer _sbo_solar_objects {
-    uint solar_object_count;
-    uint _pad[3];
-    _solar_object solar_objects[];
-} sbo_solar_objects;
 
 const vec2 OFFSETS[6] = vec2[](
         vec2(-1.0, -1.0),

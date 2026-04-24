@@ -1,6 +1,6 @@
 TODO LIST
-- add radius based on mass function
-- add variety of densities to simulate gas giants/stars/other planets etc
+X add radius based on mass function
+X add variety of densities to simulate gas giants/stars/other planets etc
 - add gridlines
 - add trail / orbit lines (as its more than 2 bodies i guess simulate x amount of time ahead, no need for too much)
 

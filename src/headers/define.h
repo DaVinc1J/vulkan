@@ -93,6 +93,16 @@ typedef enum _solar_object_type {
 	SOLAR_OBJECT_TYPE_COUNT,
 } _solar_object_type;
 
+typedef enum _planet_type {
+    PLANET_TYPE_ROCKY,
+    PLANET_TYPE_ICY,
+    PLANET_TYPE_GAS_GIANT,
+    PLANET_TYPE_ICE_GIANT,
+    PLANET_TYPE_STAR,
+    PLANET_TYPE_WHITE_DWARF,
+    PLANET_TYPE_COUNT,
+} _planet_type;
+
 typedef struct _billboard_legacy {
 	vec4 pos;
 	vec4 data;
@@ -178,7 +188,9 @@ typedef struct _solar_object {
     u32 colour_id;
     u32 billboard_index;
     u32 type;
-    u32 _pad3;
+    u32 planet_type;
+		float intensity;
+		u32 _pad5;
 } _solar_object;
 
 typedef enum _colour_hex {
@@ -189,7 +201,14 @@ typedef enum _colour_hex {
     COLOUR_CYAN    = 0x00FFFF,
     COLOUR_WHITE   = 0xFFFFFF,
     COLOUR_PURPLE  = 0x800080,
-    COLOUR_ORANGE  = 0xFF8000
+    COLOUR_ORANGE  = 0xFF8000,
+
+    COLOUR_ROCKY      = 0x8B4513,
+    COLOUR_ICY        = 0xB0E0E6,
+    COLOUR_GAS_GIANT  = 0xD2A679,
+    COLOUR_ICE_GIANT  = 0x4169E1,
+    COLOUR_STAR       = 0xFFD27F,
+    COLOUR_WHITE_DWARF= 0xE6F2FF,
 } _colour_hex;
 
 typedef struct _node {
@@ -206,6 +225,8 @@ typedef struct _candidates {
 typedef struct _ubo {
 	mat4 proj;
 	mat4 view;
+  mat4 inv_proj;
+  mat4 inv_view;
 	vec4 ambient;
 } _ubo;
 
@@ -270,6 +291,7 @@ typedef struct _app_pipeline {
 	VkPipeline opaque;
 	VkPipeline transparent;
 	VkPipeline billboard;
+	VkPipeline grid;
 	VkFramebuffer* swapchain_framebuffers;
 } _app_pipeline;
 
@@ -347,6 +369,8 @@ typedef struct _app_shader {
 	char *mesh_frag;
 	char *billboard_vert;
 	char *billboard_frag;
+	char *grid_vert;
+	char *grid_frag;
 } _app_shader;
 
 
@@ -360,7 +384,7 @@ typedef struct _app_config {
 	struct {
 		u32 MESH_SPHERE_LOD_SEGMENTS[MESH_SPHERE_LOD_COUNT];
 		u32 MESH_SPHERE_LOD_RINGS[MESH_SPHERE_LOD_COUNT];
-		u32 MESH_SPHERE_LOD_DISTANCES[MESH_SPHERE_LOD_COUNT - 1];
+		float MESH_SPHERE_LOD_DISTANCES[MESH_SPHERE_LOD_COUNT - 1];
 		float MESH_SPHERE_LOD_RADIUS_MODIFIER;
 	} lod;
 } _app_config;

@@ -472,6 +472,11 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 												 p_app->pipeline.layout, 0, 1,
 												 &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
 
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.grid);
+	vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
+	
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 
 	VkDeviceSize offset = 0;

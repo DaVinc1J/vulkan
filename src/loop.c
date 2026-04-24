@@ -152,6 +152,9 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 								 p_app->view.near_plane, p_app->view.far_plane, ubo.proj);
 	ubo.proj[1][1] *= -1;
 
+	glm_mat4_inv(ubo.proj, ubo.inv_proj);
+	glm_mat4_inv(ubo.view, ubo.inv_view);
+
 	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient);
 
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
