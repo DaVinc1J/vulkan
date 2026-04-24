@@ -4,8 +4,8 @@
 void app_init(_app *p_app) {
 
 	p_app->config.win.title = "davincij";
-	p_app->config.win.width = 800;
-	p_app->config.win.height = 800;
+	p_app->config.win.width = 400;
+	p_app->config.win.height = 300;
 	p_app->config.win.flags = CONFIG_FLAG_NONE;
 
 	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 8;
@@ -30,10 +30,10 @@ void app_init(_app *p_app) {
 	p_app->shader.grid_vert = "src/shaders/grid.vert.spv";
 	p_app->shader.grid_frag = "src/shaders/grid.frag.spv";
 
-	glm_vec3_copy((vec3){0.0f, 0.0f, 1.0f}, p_app->view.camera_pos);
+	glm_vec3_copy((vec3){10.0f, 10.0f, 10.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, p_app->view.world_up);
-	p_app->view.fov_y = 80.0f;
+	p_app->view.fov_y = 90.0f;
 	p_app->view.near_plane = 0.1f;
 	p_app->view.far_plane = 800.0f;
 	p_app->view.rotation_speed = 0.0f;
@@ -50,47 +50,11 @@ void app_init(_app *p_app) {
 			.position = {0.0f, 0.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
-			.mass = 4.0e10f,
+			.mass = 1.0e9f,
 			.intensity = 2000.0f,
 			.colour_id = COLOUR_WHITE,
-			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
-			.planet_type = PLANET_TYPE_WHITE_DWARF
-		},
-		{
-			.position = {-30.0f, 0.0f, -30.0f},
-			.velocity = {-6.94f, 0.0f, 6.94f},
-
-			.mass = 1.0e5f,
-			.colour_id = COLOUR_PURPLE,
 			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_ICY
-		},
-		{
-			.position = {20.0f, 0.0f, 20.0f},
-			.velocity = {8.5f, 0.0f, -8.5f},
-
-			.mass = 1.0e5f,
-			.colour_id = COLOUR_BLUE,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_ROCKY
-		},
-		{
-			.position = {-40.0f, 0.0f, 40.0f},
-			.velocity = {6.01f, 0.0f, 6.01f},
-
-			.mass = 1.0e5f,
-			.colour_id = COLOUR_RED,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_ICE_GIANT
-		},
-		{
-			.position = {50.0f, 0.0f, -50.0f},
-			.velocity = {-5.38f, 0.0f, -5.38f},
-
-			.mass = 1.0e5f,
-			.colour_id = COLOUR_YELLOW,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_GAS_GIANT
+			.planet_type = PLANET_TYPE_STAR
 		},
 	};
 
@@ -111,5 +75,5 @@ void app_init(_app *p_app) {
 	p_app->obj.solar_objects = malloc(sizeof(_solar_object) * p_app->obj.solar_object_count);
 	memcpy(p_app->obj.solar_objects, solar_objects, sizeof(solar_objects));
 
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, p_app->lighting.ambient);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 1.0f}, p_app->lighting.ambient);
 }
