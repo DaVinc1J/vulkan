@@ -131,13 +131,10 @@ _billboard generate_billboard(_solar_object *solar_object) {
 }
 
 void create_billboards(_app *p_app) {
-	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
-		p_app->obj.solar_objects[i].billboard_index = UINT32_MAX;
-	}
-
 	u32 billboard_index = 0;
 	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
-		if (p_app->obj.solar_objects[i].type != SOLAR_OBJECT_TYPE_LIGHT_EMIT) continue;
+		if (p_app->obj.solar_objects[i].type != SOLAR_OBJECT_TYPE_BILLBOARD) continue;
+		p_app->obj.solar_objects[i].billboard_index = UINT32_MAX;
 
 		p_app->obj.billboard_count += 1;
 		if (p_app->obj.billboard_max <= p_app->obj.billboard_count) {
@@ -202,17 +199,16 @@ void calculate_gravity(_app *p_app) {
 }
 
 void update_billboard_positions(_app *p_app) {
-	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
-		_solar_object *solar_obj = &p_app->obj.solar_objects[i];
-		u32 b = solar_obj->billboard_index;
+	if (p_app->obj.billboard_count > 0) {
+		for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
+			_solar_object *solar_obj = &p_app->obj.solar_objects[i];
+			u32 b = solar_obj->billboard_index;
 
-		if (b < p_app->obj.billboard_count) {
-			p_app->obj.billboards[b].light_pos_w.position[0] = 
-				solar_obj->position[0];
-			p_app->obj.billboards[b].light_pos_w.position[1] = 
-				solar_obj->position[1];
-			p_app->obj.billboards[b].light_pos_w.position[2] = 
-				solar_obj->position[2];
+			if (b < p_app->obj.billboard_count) {
+				p_app->obj.billboards[b].light_pos_w.position[0] = solar_obj->position[0];
+				p_app->obj.billboards[b].light_pos_w.position[1] = solar_obj->position[1];
+				p_app->obj.billboards[b].light_pos_w.position[2] = solar_obj->position[2];
+			}
 		}
 	}
 }

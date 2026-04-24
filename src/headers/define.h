@@ -90,6 +90,7 @@ typedef enum _mesh_shape_type {
 typedef enum _solar_object_type {
 	SOLAR_OBJECT_TYPE_PLAIN,
 	SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+	SOLAR_OBJECT_TYPE_BILLBOARD,
 	SOLAR_OBJECT_TYPE_COUNT,
 } _solar_object_type;
 

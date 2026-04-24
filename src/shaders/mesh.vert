@@ -10,6 +10,7 @@ layout(location = 0) out vec3 frag_pos;
 layout(location = 1) out vec2 frag_uv;
 layout(location = 2) out vec3 frag_norm;
 layout(location = 3) out uvec4 frag_data;
+layout(location = 4) flat out uint frag_object_index;
 
 layout(set = 0, binding = 0) uniform _ubo {
     mat4 proj;
@@ -59,4 +60,5 @@ void main() {
     frag_norm = normalize(in_norm);
     frag_uv = in_uv;
     frag_data = uvec4(obj.colour_id, in_data.y, in_data.z, in_data.w);
+    frag_object_index = pc.object_index;
 }

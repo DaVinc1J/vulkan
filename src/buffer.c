@@ -484,10 +484,6 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {
 		_solar_object *obj = &p_app->obj.solar_objects[i];
 
-		if (obj->type == SOLAR_OBJECT_TYPE_LIGHT_EMIT) {
-			continue;
-		}
-
 		vec3 diff;
 		glm_vec3_sub(obj->position, p_app->view.camera_pos, diff);
 		float dist2 = glm_vec3_dot(diff, diff);

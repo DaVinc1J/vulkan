@@ -8,18 +8,18 @@ void app_init(_app *p_app) {
 	p_app->config.win.height = 300;
 	p_app->config.win.flags = CONFIG_FLAG_NONE;
 
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 8;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 16;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[2] = 32;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[3] = 64;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[0] = 8;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[1] = 16;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[2] = 32;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[3] = 64;
-	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[0] = 200.0f;
-	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[1] = 400.0f;
-	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 800.0f;
-	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[2] = 128;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[3] = 256;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[0] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[1] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[2] = 128;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[3] = 256;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[0] = 2500.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[1] = 6400.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 10000.0f;
+	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 0.5f;
 
 	p_app->sync.frame_index = 0;
 
@@ -30,7 +30,7 @@ void app_init(_app *p_app) {
 	p_app->shader.grid_vert = "src/shaders/grid.vert.spv";
 	p_app->shader.grid_frag = "src/shaders/grid.frag.spv";
 
-	glm_vec3_copy((vec3){10.0f, 10.0f, 10.0f}, p_app->view.camera_pos);
+	glm_vec3_copy((vec3){100.0f, 10.0f, 100.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, p_app->view.world_up);
 	p_app->view.fov_y = 90.0f;
@@ -50,11 +50,18 @@ void app_init(_app *p_app) {
 			.position = {0.0f, 0.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
-			.mass = 1.0e9f,
-			.intensity = 2000.0f,
-			.colour_id = COLOUR_WHITE,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
+			.mass = 4.0e10f,
+			.intensity = 10000.0f,
+			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 			.planet_type = PLANET_TYPE_STAR
+		},
+		{
+			.position = {80.0f, 0.0f, 80.0f},
+			.velocity = {-5.0f, 0.0f, 5.0f},
+
+			.mass = 1.0e5f,
+			.type = SOLAR_OBJECT_TYPE_PLAIN,
+			.planet_type = PLANET_TYPE_ROCKY
 		},
 	};
 
@@ -75,5 +82,5 @@ void app_init(_app *p_app) {
 	p_app->obj.solar_objects = malloc(sizeof(_solar_object) * p_app->obj.solar_object_count);
 	memcpy(p_app->obj.solar_objects, solar_objects, sizeof(solar_objects));
 
-	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 1.0f}, p_app->lighting.ambient);
+	glm_vec4_copy((vec4){1.0f, 1.0f, 1.0f, 0.0f}, p_app->lighting.ambient);
 }

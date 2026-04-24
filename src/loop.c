@@ -183,6 +183,7 @@ void update_storage_buffers(_app *p_app, u32 current_image) {
 }
 
 void update_billboards(_app *p_app) {
+	if (p_app->obj.billboard_count > 0) {
 	for (int i = 0; i < p_app->obj.billboard_count; ++i) {
 		if ((p_app->obj.billboards[i].flags[0] & 1 << 0) == 1 && (p_app->obj.billboards[i].flags[2] & 1 << 0) != 1) {
 			float orbit_speed = 2.5f;
@@ -196,6 +197,7 @@ void update_billboards(_app *p_app) {
 				p_app->obj.billboards[i].pos_w[2] = sinf(angle) * radius;
 			}
 		}
+	}
 	}
 }
 
