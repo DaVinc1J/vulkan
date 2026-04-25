@@ -51,6 +51,7 @@ void vulkan_init(_app *p_app) {
 	create_command_pool(p_app);
 	create_colour_resources(p_app);
 	create_depth_resources(p_app);
+	create_resolve_resources(p_app);
 	create_framebuffers(p_app);
 	create_billboards(p_app);
 	create_billboard_buffer(p_app);
@@ -81,6 +82,8 @@ void clean(_app *p_app) {
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 	vkDestroyImageView(p_app->device.logical, p_app->colour.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->colour.image, p_app->colour.image_allocation);
+	vkDestroyImageView(p_app->device.logical, p_app->resolve.image_view, NULL);
+	vmaDestroyImage(p_app->mem.alloc, p_app->resolve.image, p_app->resolve.image_allocation);
 
 	vkDestroyDescriptorPool(p_app->device.logical, p_app->descriptor.pool, NULL);
 	vkDestroyDescriptorSetLayout(p_app->device.logical, p_app->pipeline.descriptor_set_layout, NULL);

@@ -449,7 +449,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = p_app->pipeline.render_pass,
 		.framebuffer = p_app->pipeline.swapchain_framebuffers[image_index],
-		.renderArea = { .offset = {0, 0}, .extent = p_app->swp.extent },
+		.renderArea = { .offset = {0, 0}, .extent = p_app->swp.render_extent },
 		.clearValueCount = 2,
 		.pClearValues = clear_values,
 	};
@@ -458,14 +458,14 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 	VkViewport viewport = {
 		.x = 0.0f, .y = 0.0f,
-		.width = (float)p_app->swp.extent.width,
-		.height = (float)p_app->swp.extent.height,
+		.width = (float)p_app->swp.render_extent.width,
+		.height = (float)p_app->swp.render_extent.height,
 		.minDepth = 0.0f, .maxDepth = 1.0f
 	};
 
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
-	VkRect2D scissor = { .offset = {0, 0}, .extent = p_app->swp.extent };
+	VkRect2D scissor = { .offset = {0, 0}, .extent = p_app->swp.render_extent };
 	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -551,6 +551,53 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 	}
 
 	vkCmdEndRenderPass(command_buffer);
+
+	VkImageMemoryBarrier to_transfer_dst = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = p_app->swp.images[image_index],
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0, .levelCount = 1,
+			.baseArrayLayer = 0, .layerCount = 1,
+		},
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+	};
+	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &to_transfer_dst);
+
+	VkImageBlit blit = {
+		.srcSubresource = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1 },
+		.srcOffsets[0] = { 0, 0, 0 },
+		.srcOffsets[1] = { (i32)p_app->swp.render_extent.width, (i32)p_app->swp.render_extent.height, 1 },
+		.dstSubresource = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1 },
+		.dstOffsets[0] = { 0, 0, 0 },
+		.dstOffsets[1] = { (i32)p_app->swp.extent.width, (i32)p_app->swp.extent.height, 1 },
+	};
+	vkCmdBlitImage(command_buffer,
+		p_app->resolve.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		p_app->swp.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &blit, VK_FILTER_LINEAR);
+
+	VkImageMemoryBarrier to_present = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = p_app->swp.images[image_index],
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0, .levelCount = 1,
+			.baseArrayLayer = 0, .layerCount = 1,
+		},
+		.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.dstAccessMask = 0,
+	};
+	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 1, &to_present);
 
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
 		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "command buffer => failed to end record");

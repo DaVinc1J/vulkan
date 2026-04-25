@@ -366,6 +366,12 @@ typedef struct _app_colour {
 	VkImageView image_view;
 } _app_colour;
 
+typedef struct _app_resolve {
+	VkImage image;
+	VmaAllocation image_allocation;
+	VkImageView image_view;
+} _app_resolve;
+
 typedef struct _app_shader {
 	char *mesh_vert;
 	char *mesh_frag;
@@ -448,13 +454,14 @@ typedef struct _app {
 	_app_storages storage;
 	_app_descriptors descriptor;
 	_app_depth depth;
+	_app_colour colour;
+	_app_resolve resolve;
 	_app_config config;
 	_app_mesh mesh;
 	_app_billboard billboard;
 	_app_objects obj;
 	_app_shader shader;
 	_app_view view;
-	_app_colour colour;
 	_app_performance perf;
 	_app_lighting lighting;
 	_app_sim sim;

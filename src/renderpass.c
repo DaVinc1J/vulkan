@@ -27,7 +27,7 @@ void create_render_pass(_app *p_app) {
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 	};
 
 	VkAttachmentReference colour_attachment_resolve_reference = {
@@ -60,13 +60,23 @@ void create_render_pass(_app *p_app) {
 	};
 
 
-	VkSubpassDependency dependency = {
-		.srcSubpass = VK_SUBPASS_EXTERNAL,
-		.dstSubpass = 0,
-		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-		.srcAccessMask = 0,
-		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+	VkSubpassDependency dependencies[] = {
+		{
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			.srcAccessMask = 0,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		},
+		{
+			.srcSubpass = 0,
+			.dstSubpass = VK_SUBPASS_EXTERNAL,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT,
+			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+		},
 	};
 
 	VkAttachmentDescription attachments[] = {colour_attachment_description, depth_attachment_description, colour_attachment_resolve};
@@ -77,8 +87,8 @@ void create_render_pass(_app *p_app) {
 		.pAttachments = attachments,
 		.subpassCount = 1,
 		.pSubpasses = &subpass,
-		.dependencyCount = 1,
-		.pDependencies = &dependency,
+		.dependencyCount = sizeof(dependencies) / sizeof(dependencies[0]),
+		.pDependencies = dependencies,
 	};
 
 	if (vkCreateRenderPass(p_app->device.logical, &render_pass_create_info, NULL, &p_app->pipeline.render_pass) != VK_SUCCESS) {

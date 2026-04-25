@@ -49,8 +49,15 @@ bool has_stencil_component(VkFormat format) {
 void create_colour_resources(_app *p_app) {
 	VkFormat colour_format = p_app->swp.surface_format.format;
 
-	create_image(p_app, &p_app->colour.image, 1, p_app->device.msaa_samples, &p_app->colour.image_allocation, p_app->swp.render_extent.width, p_app->swp.render_extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+	create_image(p_app, &p_app->colour.image, 1, p_app->device.msaa_samples, &p_app->colour.image_allocation, p_app->swp.render_extent.width, p_app->swp.render_extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 	create_image_view(p_app, p_app->colour.image, &p_app->colour.image_view, 1, colour_format, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void create_resolve_resources(_app *p_app) {
+	VkFormat colour_format = p_app->swp.surface_format.format;
+
+	create_image(p_app, &p_app->resolve.image, 1, VK_SAMPLE_COUNT_1_BIT, &p_app->resolve.image_allocation, p_app->swp.render_extent.width, p_app->swp.render_extent.height, colour_format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+	create_image_view(p_app, p_app->resolve.image, &p_app->resolve.image_view, 1, colour_format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void create_depth_resources(_app *p_app) {

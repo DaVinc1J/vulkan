@@ -4,22 +4,23 @@
 void app_init(_app *p_app) {
 
 	p_app->config.win.title = "davincij";
-	p_app->config.win.width = 400;
-	p_app->config.win.height = 300;
+	p_app->config.win.width = 800;
+	p_app->config.win.height = 600;
 	p_app->config.win.flags = CONFIG_FLAG_NONE;
+	p_app->config.win.render_extent_modifier = 0.5f;
 
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 32;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 64;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[2] = 128;
-	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[3] = 256;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[0] = 32;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[1] = 64;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[2] = 128;
-	p_app->config.lod.MESH_SPHERE_LOD_RINGS[3] = 256;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 16;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[2] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[3] = 128;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[0] = 16;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[1] = 32;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[2] = 64;
+	p_app->config.lod.MESH_SPHERE_LOD_RINGS[3] = 128;
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[0] = 2500.0f;
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[1] = 6400.0f;
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 10000.0f;
-	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 0.5f;
+	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
 
 	p_app->sync.frame_index = 0;
 
@@ -30,12 +31,12 @@ void app_init(_app *p_app) {
 	p_app->shader.grid_vert = "src/shaders/grid.vert.spv";
 	p_app->shader.grid_frag = "src/shaders/grid.frag.spv";
 
-	glm_vec3_copy((vec3){100.0f, 10.0f, 100.0f}, p_app->view.camera_pos);
+	glm_vec3_copy((vec3){10.0f, 10.0f, 10.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
 	glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, p_app->view.world_up);
-	p_app->view.fov_y = 90.0f;
-	p_app->view.near_plane = 0.1f;
-	p_app->view.far_plane = 800.0f;
+	p_app->view.fov_y = 120.0f;
+	p_app->view.near_plane = 0.01f;
+	p_app->view.far_plane = 1000.0f;
 	p_app->view.rotation_speed = 0.0f;
 	p_app->view.speed = 0.5f;
 	p_app->view.lerp_speed = 0.1f;
@@ -50,14 +51,14 @@ void app_init(_app *p_app) {
 			.position = {0.0f, 0.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
-			.mass = 4.0e10f,
+			.mass = 1.0e12f,
 			.intensity = 10000.0f,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
-			.planet_type = PLANET_TYPE_STAR
+			.planet_type = PLANET_TYPE_WHITE_DWARF
 		},
 		{
-			.position = {80.0f, 0.0f, 80.0f},
-			.velocity = {-5.0f, 0.0f, 5.0f},
+			.position = {32.0f, 0.0f, 32.0f},
+			.velocity = {-32.0f, 0.0f, 32.0f},
 
 			.mass = 1.0e5f,
 			.type = SOLAR_OBJECT_TYPE_PLAIN,

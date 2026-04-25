@@ -61,8 +61,10 @@ void create_swapchain(_app *p_app) {
 	p_app->swp.extent = choose_swapchain_swap_extent(p_app, &support);
 
 	float modifier = p_app->config.win.render_extent_modifier;
-	p_app->swp.render_extent.width  = p_app->swp.extent.width  * modifier;
-	p_app->swp.render_extent.height = p_app->swp.extent.height * modifier;
+	p_app->swp.render_extent.width  = (u32)(p_app->swp.extent.width  * modifier);
+	p_app->swp.render_extent.height = (u32)(p_app->swp.extent.height * modifier);
+	if (p_app->swp.render_extent.width  == 0) p_app->swp.render_extent.width  = 1;
+	if (p_app->swp.render_extent.height == 0) p_app->swp.render_extent.height = 1;
 
 	u32 image_count = support.capabilities.minImageCount + 1;
 	if (support.capabilities.maxImageCount > 0 && image_count > support.capabilities.maxImageCount) {
@@ -77,7 +79,7 @@ void create_swapchain(_app *p_app) {
 		.imageColorSpace = p_app->swp.surface_format.colorSpace,
 		.imageExtent = p_app->swp.extent,
 		.imageArrayLayers = 1,
-		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		.preTransform = support.capabilities.currentTransform,
 		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
 		.presentMode = present_mode,
@@ -157,28 +159,23 @@ void create_image_views(_app *p_app) {
 void create_framebuffers(_app *p_app) {
 	p_app->pipeline.swapchain_framebuffers = malloc(sizeof(VkFramebuffer) * p_app->swp.images_count);
 
+	VkImageView attachments[] = {
+		p_app->colour.image_view,
+		p_app->depth.image_view,
+		p_app->resolve.image_view,
+	};
+
 	VkFramebufferCreateInfo framebuffer_create_info = {
 		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		.renderPass = p_app->pipeline.render_pass,
 		.width = p_app->swp.render_extent.width,
 		.height = p_app->swp.render_extent.height,
 		.layers = 1,
-	};
-
-
-	VkImageView attachments[] = {
-		p_app->colour.image_view,
-		p_app->depth.image_view,
-		NULL,
+		.attachmentCount = sizeof(attachments) / sizeof(attachments[0]),
+		.pAttachments = attachments,
 	};
 
 	for (size_t i = 0; i < p_app->swp.images_count; i++) {
-
-		attachments[2] = p_app->swp.image_views[i];
-
-		framebuffer_create_info.attachmentCount = sizeof(attachments) / sizeof(attachments[0]);
-		framebuffer_create_info.pAttachments = attachments;
-
 		if (vkCreateFramebuffer(p_app->device.logical, &framebuffer_create_info, NULL, &p_app->pipeline.swapchain_framebuffers[i]) != VK_SUCCESS) {
 			submit_debug_message(
 				p_app->inst.instance,
@@ -203,6 +200,8 @@ void cleanup_swapchain(_app *p_app) {
 	vmaDestroyImage(p_app->mem.alloc, p_app->depth.image, p_app->depth.image_allocation);
 	vkDestroyImageView(p_app->device.logical, p_app->colour.image_view, NULL);
 	vmaDestroyImage(p_app->mem.alloc, p_app->colour.image, p_app->colour.image_allocation);
+	vkDestroyImageView(p_app->device.logical, p_app->resolve.image_view, NULL);
+	vmaDestroyImage(p_app->mem.alloc, p_app->resolve.image, p_app->resolve.image_allocation);
 
 	vkDestroySwapchainKHR(p_app->device.logical, p_app->swp.swapchain, NULL);
 }
