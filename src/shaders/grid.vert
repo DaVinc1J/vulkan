@@ -36,7 +36,6 @@ layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {
     _solar_object solar_objects[];
 } sbo_solar_objects;
 
-const float TARGET_Y = 5.0;
 const float GRAVITY_SCALE = 25.0;
 const float SOFTENING = 0.01;
 const float MAX_DEPRESSION = 60.0;
@@ -55,7 +54,7 @@ float compute_displacement(vec2 xz) {
 void main() {
     vec2 xz = in_pos.xz;
     float disp = compute_displacement(xz);
-    vec3 world = vec3(xz.x, TARGET_Y + disp, xz.y);
+    vec3 world = vec3(xz.x, disp, xz.y);
 
     frag_intensity = clamp(-disp / 10.0, 0.0, 1.0);
     frag_world_pos = world;

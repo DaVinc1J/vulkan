@@ -23,8 +23,8 @@ VkVertexInputBindingDescription get_billboard_binding_description() {
 VkVertexInputBindingDescription get_grid_binding_description() {
 	VkVertexInputBindingDescription binding_description = {};
 	binding_description.binding = 0;
-	binding_description.stride = sizeof(_billboard);
-	binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+	binding_description.stride = sizeof(_grid_vertex);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	return binding_description;
 }
 
