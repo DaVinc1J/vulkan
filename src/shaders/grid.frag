@@ -1,6 +1,7 @@
 #version 450
 
-layout(location = 0) in vec3 frag_world_pos;
+layout(location = 0) in float frag_intensity;
+layout(location = 1) in vec3 frag_world_pos;
 
 layout(location = 0) out vec4 frag_color;
 
@@ -12,82 +13,18 @@ layout(set = 0, binding = 0) uniform _ubo {
     vec4 ambient;
 } ubo;
 
-struct _solar_object {
-    vec3 position;
-    float _pad0;
-    vec3 velocity;
-    float _pad1;
-    vec3 acceleration;
-    float _pad2;
-    float mass;
-    float radius;
-    uint colour_id;
-    uint billboard_index;
-    uint type;
-    uint planet_type;
-    float intensity;
-    uint _pad5;
-};
-
-layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {
-    uint solar_object_count;
-    uint _pad[3];
-    _solar_object solar_objects[];
-} sbo_solar_objects;
-
-const float GRAVITY_SCALE = 25.0;
-const float SOFTENING = 0.01;
-
-float compute_displacement(vec2 xz) {
-    float disp = 0.0;
-    uint count = sbo_solar_objects.solar_object_count;
-    for (uint i = 0u; i < count; ++i) {
-        _solar_object obj = sbo_solar_objects.solar_objects[i];
-        float r = length(xz - obj.position.xz);
-        disp -= GRAVITY_SCALE * obj.mass / (r + SOFTENING);
-    }
-    return disp;
-}
-
-float grid_alpha(vec2 coord_xz, float scale) {
-    vec2 coord = coord_xz * scale;
-    vec2 d = fwidth(coord);
-    vec2 g = abs(fract(coord - 0.5) - 0.5) / d;
-    float line = min(g.x, g.y);
-    return 1.0 - min(line, 1.0);
-}
-
 void main() {
-    const float CELL_SCALE = 2.0;
-    const float LOD_BASE = 2.0;
-    const float LOD_OFFSET = -0.7;
-    const float MIN_CAM_DIST = 12.5;
-    const float ALPHA_CUTOFF = 0.01;
-    const float FADE_START = 50.0;
+    const float FADE_START = 200.0;
     const float FADE_END = 500.0;
 
-    vec2 xz = frag_world_pos.xz;
-
-    float disp = compute_displacement(xz);
-    float intensity = clamp(-disp / 10.0, 0.0, 1.0);
-    vec3 color = mix(vec3(0.2, 0.3, 0.8),
-            vec3(1.0, 0.2, 0.0),
-            intensity);
+    vec3 cool = vec3(0.2, 0.3, 0.8);
+    vec3 hot = vec3(1.0, 0.2, 0.0);
+    vec3 color = mix(cool, hot, frag_intensity);
 
     vec3 cam = ubo.inv_view[3].xyz;
-    float cam_dist = max(abs(cam.y), MIN_CAM_DIST);
-    float lod = log(cam_dist) / log(LOD_BASE) + LOD_OFFSET;
-    float cell = pow(LOD_BASE, floor(lod)) * CELL_SCALE;
-    float cell2 = cell * LOD_BASE;
-
-    float a1 = grid_alpha(xz, 1.0 / cell);
-    float a2 = grid_alpha(xz, 1.0 / cell2);
-    float blend = smoothstep(0.0, 1.0, fract(lod));
-    float alpha = mix(a1, a2, blend);
-
     float frag_dist = length((frag_world_pos - cam).xz);
-    alpha *= 1.0 - smoothstep(FADE_START, FADE_END, frag_dist);
-    if (alpha < ALPHA_CUTOFF) discard;
+    float alpha = 1.0 - smoothstep(FADE_START, FADE_END, frag_dist);
 
+    if (alpha < 0.01) discard;
     frag_color = vec4(color, alpha);
 }

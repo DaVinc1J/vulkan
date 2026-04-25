@@ -85,6 +85,12 @@ void create_graphics_pipelines(_app *p_app) {
 	VkVertexInputAttributeDescription billboard_attr_descs[billboard_attr_count];
 	get_billboard_attribute_descriptions(billboard_attr_descs, NULL);
 
+	VkVertexInputBindingDescription grid_binding_desc = get_grid_binding_description();
+	u32 grid_attr_count = 0;
+	get_grid_attribute_descriptions(NULL, &grid_attr_count);
+	VkVertexInputAttributeDescription grid_attr_descs[grid_attr_count];
+	get_grid_attribute_descriptions(grid_attr_descs, NULL);
+
 	VkPipelineVertexInputStateCreateInfo mesh_vertex_input = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		.vertexBindingDescriptionCount = 1,
@@ -103,13 +109,20 @@ void create_graphics_pipelines(_app *p_app) {
 
 	VkPipelineVertexInputStateCreateInfo grid_vertex_input = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.vertexAttributeDescriptionCount = 0,
+		.vertexBindingDescriptionCount = 1,
+		.vertexAttributeDescriptionCount = grid_attr_count,
+		.pVertexBindingDescriptions = &grid_binding_desc,
+		.pVertexAttributeDescriptions = grid_attr_descs,
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_asm = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
 		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+	};
+
+	VkPipelineInputAssemblyStateCreateInfo input_asm_grid = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
 	};
 
 	VkViewport viewport = {
@@ -264,9 +277,10 @@ void create_graphics_pipelines(_app *p_app) {
 	blend_state.pAttachments = &blend_grid;
 	pipeline_info.pStages = grid_shader_stages;
 	pipeline_info.pVertexInputState = &grid_vertex_input;
+	pipeline_info.pInputAssemblyState = &input_asm_grid;
 	raster.cullMode = VK_CULL_MODE_NONE;
 	if (vkCreateGraphicsPipelines(p_app->device.logical, VK_NULL_HANDLE, 1, &pipeline_info, NULL, &p_app->pipeline.grid) != VK_SUCCESS) {
-		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "billboard pipeline => failed");
+		submit_debug_message(p_app->inst.instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, "grid pipeline => failed");
 		exit(EXIT_FAILURE);
 	}
 

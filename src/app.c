@@ -22,6 +22,10 @@ void app_init(_app *p_app) {
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 10000.0f;
 	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
 
+	p_app->config.grid.range = 400.0f;
+	p_app->config.grid.spacing = 5.0f;
+	p_app->config.grid.seg_len = 1.0f;
+
 	p_app->sync.frame_index = 0;
 
 	p_app->shader.mesh_vert = "src/shaders/mesh.vert.spv";

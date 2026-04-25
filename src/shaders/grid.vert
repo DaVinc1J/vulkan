@@ -1,6 +1,9 @@
 #version 450
 
-layout(location = 0) out vec3 frag_world_pos;
+layout(location = 0) in vec3 in_pos;
+
+layout(location = 0) out float frag_intensity;
+layout(location = 1) out vec3 frag_world_pos;
 
 layout(set = 0, binding = 0) uniform _ubo {
     mat4 proj;
@@ -33,8 +36,6 @@ layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {
     _solar_object solar_objects[];
 } sbo_solar_objects;
 
-const uint GRID_DIM = 256u;
-const float GRID_EXTENT = 400.0;
 const float TARGET_Y = 5.0;
 const float GRAVITY_SCALE = 25.0;
 const float SOFTENING = 0.01;
@@ -52,32 +53,11 @@ float compute_displacement(vec2 xz) {
 }
 
 void main() {
-    const ivec2 quad_offsets[6] = ivec2[](
-            ivec2(0, 0), ivec2(1, 0), ivec2(1, 1),
-            ivec2(0, 0), ivec2(1, 1), ivec2(0, 1)
-        );
+    vec2 xz = in_pos.xz;
+    float disp = compute_displacement(xz);
+    vec3 world = vec3(xz.x, TARGET_Y + disp, xz.y);
 
-    uint vid = uint(gl_VertexIndex);
-    uint quad_id = vid / 6u;
-    uint local = vid % 6u;
-    uint qx = quad_id % GRID_DIM;
-    uint qz = quad_id / GRID_DIM;
-    ivec2 o = quad_offsets[local];
-
-    float cell = GRID_EXTENT / float(GRID_DIM);
-
-    // snap grid origin to camera in cell-sized steps so the mesh follows the
-    // viewer while keeping world-space alignment for grid lines and warping
-    vec3 cam = ubo.inv_view[3].xyz;
-    vec2 origin = floor(cam.xz / cell) * cell;
-
-    vec2 local_xz = (vec2(float(qx + uint(o.x)), float(qz + uint(o.y)))
-            - vec2(float(GRID_DIM) * 0.5)) * cell;
-    vec2 xz = origin + local_xz;
-
-    float y = TARGET_Y + compute_displacement(xz);
-    vec3 world = vec3(xz.x, y, xz.y);
-
+    frag_intensity = clamp(-disp / 10.0, 0.0, 1.0);
     frag_world_pos = world;
     gl_Position = ubo.proj * ubo.view * vec4(world, 1.0);
 }

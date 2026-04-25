@@ -180,6 +180,10 @@ typedef struct _vertex {
 	u32 data[4];
 } _vertex;
 
+typedef struct _grid_vertex {
+	float pos[3];
+} _grid_vertex;
+
 typedef struct _solar_object {
     vec3 position;     float _pad0; 
     vec3 velocity;     float _pad1;
@@ -331,6 +335,13 @@ typedef struct _app_billboard {
 	size_t current_buffer_size;
 } _app_billboard;
 
+typedef struct _app_grid {
+	VkBuffer vertex_buffer;
+	VmaAllocation vertex_allocation;
+	u32 vertex_count;
+	_grid_vertex *verts;
+} _app_grid;
+
 typedef struct _app_uniforms {
 	VkBuffer* buffers;
 	VmaAllocation* buffer_allocations;
@@ -381,7 +392,6 @@ typedef struct _app_shader {
 	char *grid_frag;
 } _app_shader;
 
-
 typedef struct _app_config {
 	struct {
 		char *title;
@@ -396,6 +406,11 @@ typedef struct _app_config {
 		float MESH_SPHERE_LOD_DISTANCES[MESH_SPHERE_LOD_COUNT - 1];
 		float MESH_SPHERE_LOD_RADIUS_MODIFIER;
 	} lod;
+	struct {
+		float range;
+		float spacing;
+		float seg_len;
+	} grid;
 } _app_config;
 
 typedef struct _app_sim {
@@ -459,6 +474,7 @@ typedef struct _app {
 	_app_config config;
 	_app_mesh mesh;
 	_app_billboard billboard;
+	_app_grid grid;
 	_app_objects obj;
 	_app_shader shader;
 	_app_view view;

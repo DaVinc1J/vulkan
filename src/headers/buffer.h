@@ -7,6 +7,7 @@ void create_buffer(_app *p_app, VkDeviceSize size, VkBufferUsageFlags usage, Vma
 void copy_buffer(_app *p_app, VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
 void create_billboard_buffer(_app *p_app);
 void create_mesh_buffer(_app *p_app);
+void create_grid_buffer(_app *p_app);
 void create_uniform_buffers(_app *p_app);
 void create_storage_buffers(_app *p_app);
 void recreate_billboard_storage_buffers(_app *p_app, VkDeviceSize new_size);

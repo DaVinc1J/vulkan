@@ -55,6 +55,8 @@ void vulkan_init(_app *p_app) {
 	create_framebuffers(p_app);
 	create_billboards(p_app);
 	create_billboard_buffer(p_app);
+	create_grid_lines(p_app);
+	create_grid_buffer(p_app);
 	create_spheres(p_app);
 	create_mesh_buffer(p_app);
 	create_uniform_buffers(p_app);
@@ -138,6 +140,8 @@ void clean(_app *p_app) {
 
 	vmaDestroyBuffer(p_app->mem.alloc, p_app->billboard.instance_buffer, p_app->billboard.instance_allocation);
 
+	vmaDestroyBuffer(p_app->mem.alloc, p_app->grid.vertex_buffer, p_app->grid.vertex_allocation);
+
 	free(p_app->cmd.buffers);               p_app->cmd.buffers = NULL;
 
 	for (u32 i = 0; i < p_app->swp.images_count; i++) {
@@ -160,6 +164,7 @@ void clean(_app *p_app) {
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.opaque, NULL);
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.transparent, NULL);
 	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.billboard, NULL);
+	vkDestroyPipeline(p_app->device.logical, p_app->pipeline.grid, NULL);
 	vkDestroyPipelineLayout(p_app->device.logical, p_app->pipeline.layout, NULL);
 	vkDestroyRenderPass(p_app->device.logical, p_app->pipeline.render_pass, NULL);
 

@@ -7,6 +7,7 @@ void generate_sphere(_app *p_app, u32 segments, u32 rings, _vertex **out_vertice
 void create_spheres(_app *p_app);
 _billboard generate_billboard(_solar_object *solar_object);
 void create_billboards(_app *p_app);
+void create_grid_lines(_app *p_app);
 void calculate_gravity(_app *p_app);
 void update_billboard_positions(_app *p_app);
 

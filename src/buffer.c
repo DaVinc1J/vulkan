@@ -146,6 +146,29 @@ void create_mesh_buffer(_app *p_app) {
 	}
 }
 
+void create_grid_buffer(_app *p_app) {
+	VkDeviceSize buffer_size = sizeof(_grid_vertex) * p_app->grid.vertex_count;
+
+	VkBuffer staging;
+	VmaAllocation staging_alloc;
+	create_buffer(p_app, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VMA_MEMORY_USAGE_CPU_ONLY, &staging, &staging_alloc);
+
+	void* data;
+	vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
+	memcpy(data, p_app->grid.verts, buffer_size);
+	vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
+
+	create_buffer(p_app, buffer_size,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VMA_MEMORY_USAGE_GPU_ONLY,
+		&p_app->grid.vertex_buffer, &p_app->grid.vertex_allocation);
+
+	copy_buffer(p_app, staging, p_app->grid.vertex_buffer, buffer_size);
+	vmaDestroyBuffer(p_app->mem.alloc, staging, staging_alloc);
+	free(p_app->grid.verts);
+}
+
 
 void create_uniform_buffers(_app *p_app) {
 	VkDeviceSize buffer_size = sizeof(_ubo);
@@ -290,7 +313,7 @@ void recreate_billboard_storage_buffers(_app *p_app, VkDeviceSize new_size) {
 			submit_debug_message(
 				p_app->inst.instance,
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-				"storage buffers => failed to recreate storage buffers"
+				"storage buffers => failed to recreate billboard storage buffers"
 			);
 			exit(EXIT_FAILURE);
 		}
@@ -353,7 +376,7 @@ void recreate_solar_object_storage_buffers(_app *p_app, VkDeviceSize new_size) {
 			submit_debug_message(
 				p_app->inst.instance,
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-				"storage buffers => failed to recreate storage buffers"
+				"storage buffers => failed to recreate mesh storage buffers"
 			);
 			exit(EXIT_FAILURE);
 		}
@@ -473,9 +496,12 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 												 &p_app->descriptor.sets[p_app->sync.frame_index], 0, NULL);
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.grid);
-	vkCmdDraw(command_buffer, 3, 1, 0, 0);
+	{
+		VkDeviceSize grid_offset = 0;
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &p_app->grid.vertex_buffer, &grid_offset);
+		vkCmdDraw(command_buffer, p_app->grid.vertex_count, 1, 0, 0);
+	}
 
-	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 	
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 
