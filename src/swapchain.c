@@ -60,6 +60,10 @@ void create_swapchain(_app *p_app) {
 	VkPresentModeKHR present_mode = choose_swapchain_present_mode(p_app, &support);
 	p_app->swp.extent = choose_swapchain_swap_extent(p_app, &support);
 
+	float modifier = p_app->config.win.render_extent_modifier;
+	p_app->swp.render_extent.width  = p_app->swp.extent.width  * modifier;
+	p_app->swp.render_extent.height = p_app->swp.extent.height * modifier;
+
 	u32 image_count = support.capabilities.minImageCount + 1;
 	if (support.capabilities.maxImageCount > 0 && image_count > support.capabilities.maxImageCount) {
 		image_count = support.capabilities.maxImageCount;
@@ -156,8 +160,8 @@ void create_framebuffers(_app *p_app) {
 	VkFramebufferCreateInfo framebuffer_create_info = {
 		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		.renderPass = p_app->pipeline.render_pass,
-		.width = p_app->swp.extent.width,
-		.height = p_app->swp.extent.height,
+		.width = p_app->swp.render_extent.width,
+		.height = p_app->swp.render_extent.height,
 		.layers = 1,
 	};
 

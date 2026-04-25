@@ -282,6 +282,7 @@ typedef struct _app_swapchain {
 	VkImageView* image_views;
 	VkSurfaceFormatKHR surface_format;
 	VkExtent2D extent;
+	VkExtent2D render_extent;
 	bool framebuffer_resized;
 } _app_swapchain;
 
@@ -381,6 +382,7 @@ typedef struct _app_config {
 		u32 width;
 		u32 height;
 		u8 flags;
+		float render_extent_modifier;
 	} win;
 	struct {
 		u32 MESH_SPHERE_LOD_SEGMENTS[MESH_SPHERE_LOD_COUNT];

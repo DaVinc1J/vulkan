@@ -113,12 +113,12 @@ void create_graphics_pipelines(_app *p_app) {
 	};
 
 	VkViewport viewport = {
-		.width = p_app->swp.extent.width,
-		.height = p_app->swp.extent.height,
+		.width = p_app->swp.render_extent.width,
+		.height = p_app->swp.render_extent.height,
 		.minDepth = 0.0f, .maxDepth = 1.0f,
 	};
 
-	VkRect2D scissor = { .extent = p_app->swp.extent };
+	VkRect2D scissor = { .extent = p_app->swp.render_extent };
 
 	VkPipelineViewportStateCreateInfo viewport_state = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
