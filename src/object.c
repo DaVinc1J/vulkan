@@ -132,32 +132,31 @@ _billboard generate_billboard(_solar_object *solar_object) {
 
 void create_grid_lines(_app *p_app) {
 
-	u32 range = p_app->config.grid.range;
-	u32 spacing = p_app->config.grid.spacing;
-	u32 seg_len = p_app->config.grid.seg_len;
+	float range = p_app->config.grid.range;
+	float spacing = p_app->config.grid.spacing;
+	float seg_len = p_app->config.grid.seg_len;
 
-	u32 lines_per_axis = (int)(2.0f * range / spacing) + 1;
-	u32 segs_per_line = (int)(2.0f * range / seg_len);
-	u32 verts_per_line = segs_per_line * 2; // line list: 2 verts per segment
+	i32 lines_per_axis = (i32)(2.0f * range / spacing) + 1;
+	i32 segs_per_line = (i32)(2.0f * range / seg_len);
+	i32 verts_per_line = segs_per_line * 2;
 	p_app->grid.vertex_count = lines_per_axis * 2 * verts_per_line;
 
 	p_app->grid.verts = malloc(sizeof(_grid_vertex) * p_app->grid.vertex_count);
-	int v = 0;
+	i32 v = 0;
 
-	// lines parallel to X (varying Z)
-	for (u32 iz = 0; iz < lines_per_axis; iz++) {
+	for (i32 iz = 0; iz < lines_per_axis; iz++) {
 		float z = -range + iz * spacing;
-		for (u32 s = 0; s < segs_per_line; s++) {
+		for (i32 s = 0; s < segs_per_line; s++) {
 			float x0 = -range + s * seg_len;
 			float x1 = x0 + seg_len;
 			p_app->grid.verts[v++] = (_grid_vertex){{ x0, 0.0f, z }};
 			p_app->grid.verts[v++] = (_grid_vertex){{ x1, 0.0f, z }};
 		}
 	}
-	// lines parallel to Z (varying X)
-	for (u32 ix = 0; ix < lines_per_axis; ix++) {
+
+	for (i32 ix = 0; ix < lines_per_axis; ix++) {
 		float x = -range + ix * spacing;
-		for (u32 s = 0; s < segs_per_line; s++) {
+		for (i32 s = 0; s < segs_per_line; s++) {
 			float z0 = -range + s * seg_len;
 			float z1 = z0 + seg_len;
 			p_app->grid.verts[v++] = (_grid_vertex){{ x, 0.0f, z0 }};

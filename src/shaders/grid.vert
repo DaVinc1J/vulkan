@@ -36,19 +36,21 @@ layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {
     _solar_object solar_objects[];
 } sbo_solar_objects;
 
-const float GRAVITY_SCALE = 25.0;
-const float SOFTENING = 0.01;
-const float MAX_DEPRESSION = 60.0;
+const float GRAVITY_SCALE = 10e-6;
+const float SOFTENING = 0.1;
 
 float compute_displacement(vec2 xz) {
-    float disp = 0.0;
+    float raw = 0.0;
     uint count = sbo_solar_objects.solar_object_count;
     for (uint i = 0u; i < count; ++i) {
         _solar_object obj = sbo_solar_objects.solar_objects[i];
         float r = length(xz - obj.position.xz);
-        disp -= GRAVITY_SCALE * obj.mass / (r + SOFTENING);
+        raw -= GRAVITY_SCALE * obj.mass / (r + SOFTENING);
     }
-    return max(disp, -MAX_DEPRESSION);
+
+    float compressed = (log(1 - raw));
+
+    return -(compressed * compressed);
 }
 
 void main() {

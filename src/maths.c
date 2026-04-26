@@ -8,7 +8,7 @@ float planet_density(_planet_type type) {
         case PLANET_TYPE_GAS_GIANT:   return 1000.0f;
         case PLANET_TYPE_ICE_GIANT:   return 1500.0f;
         case PLANET_TYPE_STAR:        return 1400.0f;
-        case PLANET_TYPE_WHITE_DWARF: return 1.0e9f;
+        case PLANET_TYPE_WHITE_DWARF: return 1.0e6f;
         default:                      return 1000.0f;
     }
 }

@@ -22,9 +22,9 @@ void app_init(_app *p_app) {
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 10000.0f;
 	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
 
-	p_app->config.grid.range = 400.0f;
+	p_app->config.grid.range = 50.0f;
 	p_app->config.grid.spacing = 5.0f;
-	p_app->config.grid.seg_len = 1.0f;
+	p_app->config.grid.seg_len = 0.1f;
 
 	p_app->sync.frame_index = 0;
 
@@ -55,16 +55,16 @@ void app_init(_app *p_app) {
 			.position = {0.0f, 0.0f, 0.0f},
 			.velocity = {0.0f, 0.0f, 0.0f},
 
-			.mass = 1.0e12f,
+			.mass = 1.0e8f,
 			.intensity = 10000.0f,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 			.planet_type = PLANET_TYPE_WHITE_DWARF
 		},
 		{
-			.position = {32.0f, 0.0f, 32.0f},
-			.velocity = {-32.0f, 0.0f, 32.0f},
+			.position = {15.0f, 0.0f, 15.0f},
+			.velocity = {-1.0f, 0.0f, 0.0f},
 
-			.mass = 1.0e5f,
+			.mass = 1.0e7f,
 			.type = SOLAR_OBJECT_TYPE_PLAIN,
 			.planet_type = PLANET_TYPE_ROCKY
 		},
