@@ -10,5 +10,6 @@ void create_billboards(_app *p_app);
 void create_grid_lines(_app *p_app);
 void calculate_gravity(_app *p_app);
 void update_billboard_positions(_app *p_app);
+void compute_grid_params(_app *p_app, float *out_gravity_scale, float *out_softening, float *out_max_depth, float *out_max_radius);
 
 #endif

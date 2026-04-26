@@ -7,7 +7,7 @@ void app_init(_app *p_app) {
 	p_app->config.win.width = 800;
 	p_app->config.win.height = 600;
 	p_app->config.win.flags = CONFIG_FLAG_NONE;
-	p_app->config.win.render_extent_modifier = 0.5f;
+	p_app->config.win.render_extent_modifier = 0.33f;
 
 	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[0] = 16;
 	p_app->config.lod.MESH_SPHERE_LOD_SEGMENTS[1] = 32;
@@ -22,9 +22,11 @@ void app_init(_app *p_app) {
 	p_app->config.lod.MESH_SPHERE_LOD_DISTANCES[2] = 10000.0f;
 	p_app->config.lod.MESH_SPHERE_LOD_RADIUS_MODIFIER = 1.0f;
 
-	p_app->config.grid.range = 50.0f;
-	p_app->config.grid.spacing = 5.0f;
-	p_app->config.grid.seg_len = 0.1f;
+	p_app->config.grid.range = 30.0f;
+	p_app->config.grid.spacing = 2.5f;
+	p_app->config.grid.seg_len = 0.05f;
+	p_app->config.grid.depth_multiplier = 2.0f;
+	p_app->config.grid.softening_multiplier = 0.25f;
 
 	p_app->sync.frame_index = 0;
 
@@ -52,21 +54,19 @@ void app_init(_app *p_app) {
 
 	static _solar_object solar_objects[] = {
 		{
-			.position = {0.0f, 0.0f, 0.0f},
-			.velocity = {0.0f, 0.0f, 0.0f},
-
-			.mass = 1.0e8f,
-			.intensity = 10000.0f,
+    	.position = {-10.0f, 0.0f, 0.0f},
+    	.velocity = {0.0f, 0.0f, 1.66f},
+			.mass = 1.0e9f,
+			.intensity = 1000.0f,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
 			.planet_type = PLANET_TYPE_WHITE_DWARF
 		},
 		{
-			.position = {15.0f, 0.0f, 15.0f},
-			.velocity = {-1.0f, 0.0f, 0.0f},
-
-			.mass = 1.0e7f,
+    	.position = {10.0f, 0.0f, 0.0f},
+    	.velocity = {0.0f, 0.0f, -1.66f},
+			.mass = 1.0e9f,
 			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_ROCKY
+			.planet_type = PLANET_TYPE_WHITE_DWARF
 		},
 	};
 

@@ -157,6 +157,13 @@ void update_uniform_buffer(_app *p_app, u32 current_image) {
 
 	glm_vec4_copy(p_app->lighting.ambient, ubo.ambient);
 
+	float gravity_scale, softening, max_depth, max_radius;
+	compute_grid_params(p_app, &gravity_scale, &softening, &max_depth, &max_radius);
+	ubo.grid_params[0] = gravity_scale;
+	ubo.grid_params[1] = softening;
+	ubo.grid_params[2] = max_depth;
+	ubo.grid_params[3] = max_radius;
+
 	memcpy(p_app->uniform.buffers_mapped[current_image], &ubo, sizeof(ubo));
 }
 

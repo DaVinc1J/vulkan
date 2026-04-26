@@ -165,6 +165,87 @@ void create_grid_lines(_app *p_app) {
 	}
 }
 
+static float sample_max_depth(_app *p_app, float gravity_scale, float softening) {
+    u32 count = p_app->obj.solar_object_count;
+    float max_depth = 0.0f;
+    
+    for (u32 i = 0; i < count; i++) {
+        float xi = p_app->obj.solar_objects[i].position[0];
+        float zi = p_app->obj.solar_objects[i].position[2];
+
+        float raw = 0.0f;
+        for (u32 j = 0; j < count; j++) {
+            float dx = xi - p_app->obj.solar_objects[j].position[0];
+            float dz = zi - p_app->obj.solar_objects[j].position[2];
+            float r = sqrtf(dx * dx + dz * dz);
+            raw -= gravity_scale * p_app->obj.solar_objects[j].mass / (r + softening);
+        }
+
+        float compressed = logf(1.0f - raw);
+        float depth = compressed * compressed;
+        if (depth > max_depth) max_depth = depth;
+    }
+    
+    return max_depth;
+}
+
+void compute_grid_params(_app *p_app, float *out_gravity_scale, float *out_softening, float *out_max_depth, float *out_max_radius) {
+    u32 count = p_app->obj.solar_object_count;
+    if (count == 0) {
+        *out_gravity_scale = 1.0f;
+        *out_softening = 1.0f;
+        *out_max_depth = 1.0f;
+        return;
+    }
+
+    float min_radius = FLT_MAX;
+		float max_radius = FLT_MIN;
+    float max_mass = FLT_MIN;
+    for (u32 i = 0; i < count; i++) {
+        float r = p_app->obj.solar_objects[i].radius;
+        float m = p_app->obj.solar_objects[i].mass;
+        if (r > 0.0f && r < min_radius) min_radius = r;
+				if (r > max_radius) max_radius = r;
+        if (m > max_mass) max_mass = m;
+    }
+    
+    float softening = min_radius * p_app->config.grid.softening_multiplier;
+		float d_max = max_radius * p_app->config.grid.depth_multiplier;
+
+    float raw_min = 1.0f - expf(sqrtf(d_max));
+    float gravity_scale = -raw_min * 2.0f * softening / max_mass;
+
+    for (int iter = 0; iter < 10; iter++) {
+        float current_max = sample_max_depth(p_app, gravity_scale, softening);
+        float error = current_max - d_max;
+        
+        if (fabsf(error) < d_max * 0.001f) break;
+        
+        float h = gravity_scale * 0.001f;
+        if (h < 1e-6f) h = 1e-6f;
+        float max_plus = sample_max_depth(p_app, gravity_scale + h, softening);
+        float derivative = (max_plus - current_max) / h;
+        
+        if (fabsf(derivative) > 1e-10f) {
+            gravity_scale -= error / derivative;
+        } else {
+            gravity_scale *= (current_max > d_max) ? 0.9f : 1.1f;
+        }
+        
+        if (gravity_scale <= 0.0f) {
+            gravity_scale = softening / max_mass * 0.1f;
+        }
+    }
+
+    float final_max_depth = sample_max_depth(p_app, gravity_scale, softening);
+		float final_max_radius = max_radius * 1.01f;
+
+    *out_gravity_scale = gravity_scale;
+    *out_softening = softening;
+    *out_max_depth = final_max_depth;
+		*out_max_radius = final_max_radius;
+}
+
 void create_billboards(_app *p_app) {
 	u32 billboard_index = 0;
 	for (u32 i = 0; i < p_app->obj.solar_object_count; i++) {

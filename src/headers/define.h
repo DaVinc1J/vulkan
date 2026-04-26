@@ -233,6 +233,7 @@ typedef struct _ubo {
   mat4 inv_proj;
   mat4 inv_view;
 	vec4 ambient;
+	vec4 grid_params;
 } _ubo;
 
 typedef struct _sbo {
@@ -410,6 +411,8 @@ typedef struct _app_config {
 		float range;
 		float spacing;
 		float seg_len;
+		float depth_multiplier;
+		float softening_multiplier;
 	} grid;
 } _app_config;
 

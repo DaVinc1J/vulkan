@@ -11,6 +11,7 @@ layout(set = 0, binding = 0) uniform _ubo {
     mat4 inv_proj;
     mat4 inv_view;
     vec4 ambient;
+    vec4 grid_params;
 } ubo;
 
 struct _solar_object {
@@ -36,16 +37,13 @@ layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {
     _solar_object solar_objects[];
 } sbo_solar_objects;
 
-const float GRAVITY_SCALE = 10e-6;
-const float SOFTENING = 0.1;
-
-float compute_displacement(vec2 xz) {
+float compute_displacement(vec2 xz, float gravity_scale, float softening) {
     float raw = 0.0;
     uint count = sbo_solar_objects.solar_object_count;
     for (uint i = 0u; i < count; ++i) {
         _solar_object obj = sbo_solar_objects.solar_objects[i];
         float r = length(xz - obj.position.xz);
-        raw -= GRAVITY_SCALE * obj.mass / (r + SOFTENING);
+        raw -= gravity_scale * obj.mass / (r + softening);
     }
 
     float compressed = (log(1 - raw));
@@ -54,11 +52,17 @@ float compute_displacement(vec2 xz) {
 }
 
 void main() {
-    vec2 xz = in_pos.xz;
-    float disp = compute_displacement(xz);
-    vec3 world = vec3(xz.x, disp, xz.y);
+    float gravity_scale = ubo.grid_params.x;
+    float softening = ubo.grid_params.y;
+    float max_depth = ubo.grid_params.z;
+    float max_radius = ubo.grid_params.w;
 
-    frag_intensity = clamp(-disp / 10.0, 0.0, 1.0);
+    vec2 xz = in_pos.xz;
+    float disp = compute_displacement(xz, gravity_scale, softening);
+    float disp_height = disp - max_radius;
+    vec3 world = vec3(xz.x, disp_height, xz.y);
+
+    frag_intensity = clamp(-disp / max_depth, 0.0, 1.0);
     frag_world_pos = world;
     gl_Position = ubo.proj * ubo.view * vec4(world, 1.0);
 }
