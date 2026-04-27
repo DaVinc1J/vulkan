@@ -28,7 +28,7 @@ struct _solar_object {
     uint type;
     uint planet_type;
     float intensity;
-    uint _pad5;
+    float schwarzschild_radius;
 };
 
 layout(std430, set = 0, binding = 2) readonly buffer _sbo_solar_objects {

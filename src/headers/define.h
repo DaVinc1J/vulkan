@@ -45,6 +45,7 @@ typedef int32_t i32;
 #define MASS_SCALE 1.0f / 1.989e30f
 #define RADIUS_SCALE 1.0f / 6.957e8f     
 #define SBO_HEADER_SIZE (sizeof(u32) * 4)
+#define COLOUR_NOT_SET 0xFFFFFFFF
 
 extern const u32 MAX_FRAMES_IN_FLIGHT;
 
@@ -90,6 +91,7 @@ typedef enum _mesh_shape_type {
 typedef enum _solar_object_type {
 	SOLAR_OBJECT_TYPE_PLAIN,
 	SOLAR_OBJECT_TYPE_LIGHT_EMIT,
+	SOLAR_OBJECT_TYPE_BLACKHOLE,
 	SOLAR_OBJECT_TYPE_BILLBOARD,
 	SOLAR_OBJECT_TYPE_COUNT,
 } _solar_object_type;
@@ -195,7 +197,7 @@ typedef struct _solar_object {
     u32 type;
     u32 planet_type;
 		float intensity;
-		u32 _pad5;
+		float schwarzschild_radius;
 } _solar_object;
 
 typedef enum _colour_hex {
@@ -302,6 +304,26 @@ typedef struct _app_pipeline {
 	VkFramebuffer* swapchain_framebuffers;
 } _app_pipeline;
 
+typedef struct _app_lens {
+	struct {
+		VkRenderPass render_pass;
+		VkFramebuffer framebuffer;
+		VkDescriptorSetLayout descriptor_set_layout;
+		VkPipelineLayout layout;
+		VkPipeline pipeline;
+	} pass;
+	struct {
+		VkDescriptorPool pool;
+		VkDescriptorSet *sets;
+	} descriptor;
+	struct {
+		VkImage image;
+		VmaAllocation image_allocation;
+		VkImageView image_view;
+		VkSampler sampler;
+	} target;
+} _app_lens;
+
 typedef struct _app_commands {
 	VkCommandPool pool;
 	VkCommandBuffer* buffers;
@@ -366,7 +388,7 @@ typedef struct _app_descriptors {
 	VkDescriptorSet* sets;
 } _app_descriptors;
 
-typedef struct _app_depth_resources {
+typedef struct _app_depth {
 	VkImage image;
 	VmaAllocation image_allocation;
 	VkImageView image_view;
@@ -391,6 +413,8 @@ typedef struct _app_shader {
 	char *billboard_frag;
 	char *grid_vert;
 	char *grid_frag;
+	char *lens_vert;
+	char *lens_frag;
 } _app_shader;
 
 typedef struct _app_config {
@@ -415,9 +439,6 @@ typedef struct _app_config {
 		float softening_multiplier;
 	} grid;
 } _app_config;
-
-typedef struct _app_sim {
-} _app_sim;
 
 typedef struct _app_objects {
 	_solar_object *solar_objects;
@@ -483,7 +504,7 @@ typedef struct _app {
 	_app_view view;
 	_app_performance perf;
 	_app_lighting lighting;
-	_app_sim sim;
+	_app_lens lens;
 } _app;
 
 #endif

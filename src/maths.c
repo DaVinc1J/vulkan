@@ -26,10 +26,20 @@ u32 planet_colour(_planet_type type) {
 }
 
 void set_radius(_solar_object *obj) {
+  if (obj->type == SOLAR_OBJECT_TYPE_BLACKHOLE) {
+    obj->radius = obj->schwarzschild_radius;
+    return;
+  }
   float volume = obj->mass / planet_density(obj->planet_type);
   obj->radius = cbrtf(3.0f * volume / (4.0f * (float)M_PI));
 }
 
 void set_colour(_solar_object *obj) {
-	obj->colour_id = planet_colour(obj->planet_type);
+  if (obj->type == SOLAR_OBJECT_TYPE_BLACKHOLE) {
+    obj->colour_id = 0x000000;
+    return;
+  }
+	if (obj->colour_id == COLOUR_NOT_SET) {
+		obj->colour_id = planet_colour(obj->planet_type);
+	}
 }

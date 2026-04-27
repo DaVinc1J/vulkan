@@ -2,6 +2,7 @@
 #include "headers/validation.h"
 #include "headers/core.h"
 #include "headers/image.h"
+#include "headers/lens.h"
 
 VkSurfaceFormatKHR choose_swapchain_surface_format(_app *p_app, _swapchain_support *p_support) {
 
@@ -215,11 +216,14 @@ void recreate_swapchain(_app *p_app) {
 
 	vkDeviceWaitIdle(p_app->device.logical);
 
+	cleanup_lens_swapchain(p_app);
 	cleanup_swapchain(p_app);
 
 	create_swapchain(p_app);
 	create_image_views(p_app);
 	create_colour_resources(p_app);
 	create_depth_resources(p_app);
+	create_resolve_resources(p_app);
 	create_framebuffers(p_app);
+	recreate_lens_swapchain(p_app);
 }

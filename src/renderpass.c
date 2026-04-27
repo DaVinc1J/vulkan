@@ -27,7 +27,7 @@ void create_render_pass(_app *p_app) {
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 	};
 
 	VkAttachmentReference colour_attachment_resolve_reference = {
@@ -74,8 +74,8 @@ void create_render_pass(_app *p_app) {
 			.dstSubpass = VK_SUBPASS_EXTERNAL,
 			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT,
-			.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
 		},
 	};
 

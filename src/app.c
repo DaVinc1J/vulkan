@@ -36,6 +36,8 @@ void app_init(_app *p_app) {
 	p_app->shader.billboard_frag = "src/shaders/billboard.frag.spv";
 	p_app->shader.grid_vert = "src/shaders/grid.vert.spv";
 	p_app->shader.grid_frag = "src/shaders/grid.frag.spv";
+	p_app->shader.lens_vert = "src/shaders/lens.vert.spv";
+	p_app->shader.lens_frag = "src/shaders/lens.frag.spv";
 
 	glm_vec3_copy((vec3){10.0f, 10.0f, 10.0f}, p_app->view.camera_pos);
 	glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, p_app->view.target);
@@ -56,6 +58,7 @@ void app_init(_app *p_app) {
 		{
     	.position = {-10.0f, 0.0f, 0.0f},
     	.velocity = {0.0f, 0.0f, 1.66f},
+			.colour_id = COLOUR_NOT_SET,
 			.mass = 1.0e9f,
 			.intensity = 1000.0f,
 			.type = SOLAR_OBJECT_TYPE_LIGHT_EMIT,
@@ -64,9 +67,10 @@ void app_init(_app *p_app) {
 		{
     	.position = {10.0f, 0.0f, 0.0f},
     	.velocity = {0.0f, 0.0f, -1.66f},
+			.colour_id = COLOUR_NOT_SET,
 			.mass = 1.0e9f,
-			.type = SOLAR_OBJECT_TYPE_PLAIN,
-			.planet_type = PLANET_TYPE_WHITE_DWARF
+			.type = SOLAR_OBJECT_TYPE_BLACKHOLE,
+			.schwarzschild_radius = 1.5f,
 		},
 	};
 

@@ -152,7 +152,7 @@ void create_grid_buffer(_app *p_app) {
 	VkBuffer staging;
 	VmaAllocation staging_alloc;
 	create_buffer(p_app, buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VMA_MEMORY_USAGE_CPU_ONLY, &staging, &staging_alloc);
+							 VMA_MEMORY_USAGE_CPU_ONLY, &staging, &staging_alloc);
 
 	void* data;
 	vmaMapMemory(p_app->mem.alloc, staging_alloc, &data);
@@ -160,9 +160,9 @@ void create_grid_buffer(_app *p_app) {
 	vmaUnmapMemory(p_app->mem.alloc, staging_alloc);
 
 	create_buffer(p_app, buffer_size,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VMA_MEMORY_USAGE_GPU_ONLY,
-		&p_app->grid.vertex_buffer, &p_app->grid.vertex_allocation);
+							 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+							 VMA_MEMORY_USAGE_GPU_ONLY,
+							 &p_app->grid.vertex_buffer, &p_app->grid.vertex_allocation);
 
 	copy_buffer(p_app, staging, p_app->grid.vertex_buffer, buffer_size);
 	vmaDestroyBuffer(p_app->mem.alloc, staging, staging_alloc);
@@ -502,7 +502,7 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		vkCmdDraw(command_buffer, p_app->grid.vertex_count, 1, 0, 0);
 	}
 
-	
+
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->pipeline.opaque);
 
 	VkDeviceSize offset = 0;
@@ -578,6 +578,24 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 
 	vkCmdEndRenderPass(command_buffer);
 
+	VkRenderPassBeginInfo lensing_pass_info = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = p_app->lens.pass.render_pass,
+		.framebuffer = p_app->lens.pass.framebuffer,
+		.renderArea = { .offset = {0, 0}, .extent = p_app->swp.render_extent },
+		.clearValueCount = 0,
+		.pClearValues = NULL,
+	};
+	vkCmdBeginRenderPass(command_buffer, &lensing_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_app->lens.pass.pipeline);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+												 p_app->lens.pass.layout, 0, 1,
+												 &p_app->lens.descriptor.sets[p_app->sync.frame_index], 0, NULL);
+	vkCmdDraw(command_buffer, 3, 1, 0, 0);
+	vkCmdEndRenderPass(command_buffer);
+
 	VkImageMemoryBarrier to_transfer_dst = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
@@ -604,9 +622,9 @@ void record_command_buffer(_app *p_app, VkCommandBuffer command_buffer, uint32_t
 		.dstOffsets[1] = { (i32)p_app->swp.extent.width, (i32)p_app->swp.extent.height, 1 },
 	};
 	vkCmdBlitImage(command_buffer,
-		p_app->resolve.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		p_app->swp.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1, &blit, VK_FILTER_LINEAR);
+								p_app->lens.target.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+								p_app->swp.images[image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+								1, &blit, VK_FILTER_LINEAR);
 
 	VkImageMemoryBarrier to_present = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
